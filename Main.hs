@@ -8,6 +8,7 @@ data Block =
 -- types of top level elements
 data Markdown = 
     Heading Int Text
+  | TopText Text
   deriving (Eq, Show)
 
 -- A combination of strings and inlines
