@@ -1,32 +1,24 @@
 module Main where
 
 -- list of top level stuff
-data Block = 
-    Block [Markdown]
-  deriving (Eq, Show)
+type Document = [Block]
 
 -- types of top level elements
-data Markdown = 
+data Block = 
     Heading Int Text
-  | TopText Text
+  | Paragraph Text
   deriving (Eq, Show)
 
 -- A combination of strings and inlines
-data Text =
-    Text [Element]
-  deriving (Eq, Show)
+type Text = [Inline]
 
 -- Either a string or an inline
-data Element = 
-    TextElt String 
-  | InlineElt Inline
-  deriving (Eq, Show)
-
--- Inline with a text inside
 data Inline = 
-    Bold Text
+    Literal String
+  | Bold Text
   | Italics Text
   deriving (Eq, Show)
+
 
 
 
