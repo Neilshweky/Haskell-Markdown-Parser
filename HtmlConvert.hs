@@ -16,13 +16,12 @@ convertDocument xs = H.doctypehtml_ $ groupElements $ map convertBlock xs
 
 convertBlock :: Block -> Html ()
 convertBlock (Heading n t) = h n (convertText t) where
-  h 1 = h1_
-  h 2 = h2_
-  h 3 = h3_
-  h 4 = h4_
-  h 5 = h5_
-  h 6 = h6_
-  h n = error ("unexpcted heading level: " ++ show n)
+  h H1 = h1_
+  h H2 = h2_
+  h H3 = h3_
+  h H4 = h4_
+  h H5 = h5_
+  h H6 = h6_
 convertBlock (Paragraph t) = p_ $ convertText t
 
 convertText :: Text -> Html ()
