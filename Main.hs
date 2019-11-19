@@ -1,7 +1,10 @@
 module Main where
 
+import Text.Parsec.Char
 import Text.ParserCombinators.Parsec hiding (runParser)
-import Control.Applicative hiding ((<|>), many)
+import Control.Applicative hiding ((<|>), many, optional)
+import Control.Monad (guard)
+import Data.List (reverse)
 -- list of top level stuff
 type Document = [Block]
 
@@ -43,16 +46,11 @@ runParser :: Parser a -> String -> Either ParseError a
 runParser p s = parse p "" s
 
 
-surroundP :: Parser start -> Parser end -> Parser Text
-surroundP start end = start *> someTill inlineP (try end)
+sorroundP :: Parser start -> Parser end -> Parser Text
+sorroundP start end = start *> someTill inlineP (try end)
 
 parseSurrounded :: String -> String -> Parser Text
-parseSurrounded start end = between (string start) (string end) textP
-  -- do 
-  -- surroundedText <- surroundP (string start) (string end)
-  -- case runParser textP surroundedText of
-  --   Left err -> fail $ show err
-  --   Right res -> return res
+parseSurrounded start end = sorroundP (string start) (string end)
 
 boldP :: Parser Inline
 boldP = Bold <$> ((parseSurrounded "**" "**") <|> (parseSurrounded "__" "__"))
@@ -65,7 +63,7 @@ codeP :: Parser Inline
 codeP = Code <$> (parseSurrounded "`" "`")
 
 reserved :: Char -> Bool
-reserved c = c `elem` ['*', '_', '`', '\\']
+reserved c = c `elem` ['*', '_', '`']
 
 literalP :: Parser Inline
 literalP = Literal <$> some (satisfy (not . reserved))
@@ -82,11 +80,46 @@ textP = some inlineP
 paragraphP :: Parser Block
 paragraphP = Paragraph <$> textP
 
+headingLevel :: Int -> HeadingLevel
+headingLevel 1 = H1
+headingLevel 2 = H2
+headingLevel 3 = H3
+headingLevel 4 = H4
+headingLevel 5 = H5
+headingLevel 6 = H6
+headingLevel _ = H1
+
+dropSpaces :: [Inline] -> [Inline]
+dropSpaces ((Literal l):[]) = if length list == 0 then [] else [Literal list] where
+      dropS ls@(x:xs) = if (x == ' ' || x == '#') then dropS xs else ls
+      dropS [] = []
+
+      list = (reverse (dropS (reverse l)))
+dropSpaces (x:[]) = [x]
+dropSpaces [] = []
+dropSpaces (x:xs) = x:(dropSpaces xs)
+
+ 
+
+headingP :: Parser Block
+headingP = 
+  do -- parse initial spaces
+    _ <- optional (char ' ') *> optional (char ' ') *> optional (char ' ') 
+    l <- many1 (char '#') 
+    guard ((length l) < 7 && (length l) > 0)
+    _ <- some (char ' ')
+    t <- textP
+    if length t == 0 then return (Heading (headingLevel (length l)) t)
+                     else return (Heading (headingLevel (length l)) (dropSpaces t))
+
+
 blockP :: Parser Block
-blockP = paragraphP
+blockP = (try headingP) <|> paragraphP
 
 documentP :: Parser Document
 documentP = some blockP
+
+
 
 main :: IO ()
 main = putStrLn "Hello, Haskell!"
