@@ -29,10 +29,10 @@ tText = "test html convert on text elements" ~: TestList [
 
 tBlock :: Test
 tBlock = "test html convert on block elements" ~: TestList [
-    render (Heading 1 []) ~?= "<h1></h1>"
-  , render (Heading 2 [Literal "heading 2"]) ~?= "<h2>heading 2</h2>"
-  , render (Heading 3 [Bold [Literal "heading 3"]]) ~?= "<h3><strong>heading 3</strong></h3>"
-  , render (Heading 6 [Italics [Literal "smallest heading"]]) ~?= "<h6><em>smallest heading</em></h6>"
+    render (Heading H1 []) ~?= "<h1></h1>"
+  , render (Heading H2 [Literal "heading 2"]) ~?= "<h2>heading 2</h2>"
+  , render (Heading H3 [Bold [Literal "heading 3"]]) ~?= "<h3><strong>heading 3</strong></h3>"
+  , render (Heading H6 [Italics [Literal "smallest heading"]]) ~?= "<h6><em>smallest heading</em></h6>"
   , render (Paragraph []) ~?= "<p></p>"
   , render (Paragraph [Literal "literal paragraph"]) ~?= "<p>literal paragraph</p>"
   , render (Paragraph [Literal "literal sentence." ,
@@ -46,9 +46,9 @@ tBlock = "test html convert on block elements" ~: TestList [
 tDocument :: Test
 tDocument = "test html convert on document elements" ~: TestList [
     render [] ~?= "<!DOCTYPE HTML><html></html>"
-  , render [Heading 1 [Literal "HTML DOC"]] ~?= "<!DOCTYPE HTML><html><h1>HTML DOC</h1></html>"
+  , render [Heading H1 [Literal "HTML DOC"]] ~?= "<!DOCTYPE HTML><html><h1>HTML DOC</h1></html>"
   , render [Paragraph [Literal "paragraph"]] ~?= "<!DOCTYPE HTML><html><p>paragraph</p></html>"
-  , render [Heading 1 [Literal "Article Title"], Paragraph [Literal "Article content."]] ~?=
+  , render [Heading H1 [Literal "Article Title"], Paragraph [Literal "Article content."]] ~?=
           "<!DOCTYPE HTML><html><h1>Article Title</h1><p>Article content.</p></html>"
   ] where
     render = renderText . convertDocument
@@ -62,6 +62,6 @@ main = do
 
 fileWrite :: IO ()
 fileWrite = do
-  let heading = Heading 1 [Literal "My ", Italics [Literal "First"], Literal " Title"]
+  let heading = Heading H1 [Literal "My ", Italics [Literal "First"], Literal " Title"]
   let content = Paragraph [Literal "Writen on ", Bold [Literal "Nov-18-2019"]]
   renderToFile "sample.html" $ convertDocument [heading, content]
