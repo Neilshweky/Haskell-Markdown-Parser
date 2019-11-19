@@ -32,9 +32,3 @@ convertInline :: Inline -> Html ()
 convertInline (Literal s) = toHtml s
 convertInline (Bold t) = strong_ $ convertText t
 convertInline (Italics t) = em_ $ convertText t
-
-
-heading = Heading 1 [Literal "My ", Italics [Literal "First"], Literal " Title"]
-content = Paragraph [Literal "Writen on ", Bold [Literal "Nov-18-2019"]]
-main :: IO ()
-main = renderToFile "sample.html" $ convertDocument [heading, content] 
