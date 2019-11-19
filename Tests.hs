@@ -10,7 +10,7 @@ import Main
 
 
 tInlines :: Test
-tInlines = TestList [  tBoldTest, tItalicsTest, tCodeTest, tLiteralTest, 
+tInlines = TestList [  tBoldTest, tItalicsTest, tCodeTest, tCodeDouble, tLiteralTest, 
                         tLiteralUntilTest, tTextBold, tTextBoldUnderline, 
                         tTextBoldItalics, tTextNested, tStrongEmph ]
 
@@ -25,6 +25,10 @@ tItalicsTest = "italics test" ~:
 tCodeTest :: Test
 tCodeTest = "Code test" ~: 
         runParser codeP "`hello`" ~?= Right (Code [Literal "hello"])
+
+tCodeDouble :: Test
+tCodeDouble = "Code Double" ~: 
+        runParser codeP "``hello``" ~?= Right (Code [Literal "hello"])                
         
 tLiteralTest :: Test
 tLiteralTest = "Literal test" ~: 
@@ -128,8 +132,67 @@ tHeadingEmpty :: Test
 tHeadingEmpty = "heading empty test" ~: 
     runParser blockP "## ###  " ~?= Right (Heading H2 [])
 
+-- CODE BLOCK tests
 
+tCodeBlock :: Test
+tCodeBlock = TestList [ tCBInfo, tCBInfoTildas, tCBWhiteSpace, tCBCode,
+                        tCBTwoBackTicks, tCBNoInfo, tCB4BackTicks,
+                        tCB5EndBackTicks, tCBEmpty, tCBNewLines, tCB3Spaces,
+                        tCB4Spaces, tCBInfoSpaces ]
 
+tCBInfo :: Test 
+tCBInfo = "code block info test" ~: 
+    runParser codeBlockP "```ruby\n```" ~?= Right (CodeBlock "ruby" "")
+
+tCBInfoTildas :: Test 
+tCBInfoTildas = "code block info tildas test" ~: 
+    runParser codeBlockP "~~~ruby\n~~~" ~?= Right (CodeBlock "ruby" "")
+
+tCBWhiteSpace :: Test 
+tCBWhiteSpace = "code block info test" ~: 
+    runParser codeBlockP "```    ruby     \n```" ~?= Right (CodeBlock "ruby" "")
+
+tCBCode :: Test 
+tCBCode = "code block info test" ~: 
+    runParser codeBlockP "```js\nconsole.log(\"Hello, World\")\n   ```" ~?= Right (CodeBlock "js" "console.log(\"Hello, World\")")
+
+tCBTwoBackTicks :: Test 
+tCBTwoBackTicks = "code block TwoBackTicks test" ~: 
+    runParser blockP "``ruby``" ~?= Right (Paragraph [Code [Literal "ruby"]])
+
+tCBNoInfo :: Test 
+tCBNoInfo = "code block NoInfo test" ~: 
+    runParser blockP "```\nruby```" ~?= Right (CodeBlock "" "ruby")
+
+tCB4BackTicks :: Test 
+tCB4BackTicks = "code block 4 back ticks test" ~: 
+    runParser blockP "````\nruby````" ~?= Right (CodeBlock "" "ruby")
+
+tCB5EndBackTicks :: Test 
+tCB5EndBackTicks = "code block 5 end back ticks test" ~: 
+    runParser blockP "````\nruby`````" ~?= Right (CodeBlock "" "ruby")
+
+tCBEmpty :: Test 
+tCBEmpty = "code block empty test" ~: 
+    runParser blockP "````\n`````" ~?= Right (CodeBlock "" "")
+
+tCBNewLines :: Test 
+tCBNewLines = "code block NewLines test" ~: 
+    runParser blockP "````\n\n\n\n`````" ~?= Right (CodeBlock "" "\n\n")
+
+tCB3Spaces :: Test 
+tCB3Spaces = "code block 3 spaces test" ~: 
+    runParser blockP "   ````\n\n\n\n`````" ~?= Right (CodeBlock "" "\n\n")
+
+tCB4Spaces :: Test 
+tCB4Spaces = "code block 4 spaces test" ~: 
+    runParser blockP "    ```\nruby```" ~?= Right (Paragraph [Literal "    ",Code [Code [Literal "\nruby"]]])
+
+tCBInfoSpaces :: Test 
+tCBInfoSpaces = "code block infoSpaces test" ~: 
+    runParser codeBlockP "```ruby lang\n```" ~?= Right (CodeBlock "ruby lang" "")
+-- test going past fewer end back ticks/unclosed
+--test indentation equals front, if more than 3 spaces at end backticks not closing seq
 
 main :: IO ()
 main = do

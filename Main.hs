@@ -5,6 +5,7 @@ import Text.ParserCombinators.Parsec hiding (runParser)
 import Control.Applicative hiding ((<|>), many, optional)
 import Control.Monad (guard)
 import Data.List (reverse)
+import Data.Char (isSpace)
 -- list of top level stuff
 type Document = [Block]
 
@@ -21,9 +22,11 @@ data Block
   = Heading HeadingLevel Text
   | Paragraph Text
   | BlockQuote Text
-  | CodeBlock Text
+  | CodeBlock Info PlainText
   deriving (Eq, Show)
 
+type Info = String
+type PlainText = String
 -- A combination of strings and inlines
 type Text = [Inline]
 
@@ -36,7 +39,7 @@ data Inline
   | Code Text
   deriving (Eq, Show)
 
-
+--TODO fix code spans
 someTill :: Parser a -> Parser end -> Parser [a]
 someTill p end = scan
                  where scan = (try ((:[]) <$> p <* end)) <|>
@@ -60,7 +63,7 @@ italicsP = Italics <$> ((parseSurrounded "*" "*") <|> (parseSurrounded "_" "_"))
 
 -- strip whitespace?
 codeP :: Parser Inline
-codeP = Code <$> (parseSurrounded "`" "`")
+codeP = Code <$> ((try (parseSurrounded "``" "``")) <|> (parseSurrounded "`" "`"))
 
 reserved :: Char -> Bool
 reserved c = c `elem` ['*', '_', '`']
@@ -104,7 +107,8 @@ dropSpaces (x:xs) = x:(dropSpaces xs)
 headingP :: Parser Block
 headingP = 
   do -- parse initial spaces
-    _ <- optional (char ' ') *> optional (char ' ') *> optional (char ' ') 
+    sps <- many (char ' ')
+    guard (length sps <= 3)
     l <- many1 (char '#') 
     guard ((length l) < 7 && (length l) > 0)
     _ <- some (char ' ')
@@ -113,8 +117,41 @@ headingP =
                      else return (Heading (headingLevel (length l)) (dropSpaces t))
 
 
+reservedCode :: Char -> Bool
+reservedCode c = c `elem` ['`','~']
+
+plainTextP :: Char -> Parser PlainText
+plainTextP c = many (satisfy (not . (==c)))                   
+
+codeBlockP :: Parser Block
+codeBlockP = codeBlockSurround '`' <|> codeBlockSurround '~'
+
+wsp :: Parser String
+wsp = (many (char ' ')) 
+
+
+dropWsp s = reverse (dropS (reverse s)) where
+  dropS ls@(x:xs) = if (x == '\n') then xs else 
+                    if (x == ' ') then dropS xs else ls
+  dropS [] = []
+
+dropJustWsp s = reverse (dropS (reverse s)) where
+  dropS ls@(x:xs) = if (x == ' ') then dropS xs else ls
+  dropS [] = []
+
+-- only backticks
+codeBlockSurround :: Char -> Parser Block
+codeBlockSurround c = do
+  sps <- many (char ' ')
+  guard (length sps <= 3)
+  l <- char c *> char c *> many1 (char c) <* wsp
+  i <- many (alphaNum <|> char ' ') <* endOfLine
+  text <- plainTextP c 
+  _ <- count (2 + length l) (char c) <* many (char c)
+  return (CodeBlock (dropJustWsp i) (dropWsp text))
+
 blockP :: Parser Block
-blockP = (try headingP) <|> paragraphP
+blockP = (try headingP) <|> (try codeBlockP) <|> paragraphP
 
 documentP :: Parser Document
 documentP = some blockP
