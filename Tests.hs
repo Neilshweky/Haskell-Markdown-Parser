@@ -12,7 +12,7 @@ import Main
 tInlines :: Test
 tInlines = TestList [  tBoldTest, tItalicsTest, tCodeTest, tCodeDouble, tLiteralTest, 
                         tLiteralUntilTest, tTextBold, tTextBoldUnderline, 
-                        tTextBoldItalics, tTextNested, tStrongEmph ]
+                        tTextBoldItalics, tTextNested, tStrongEmph, tTextNotClosed, tTextOneNotClosed ]
 
 tBoldTest :: Test
 tBoldTest = "bold test" ~: 
@@ -59,6 +59,14 @@ tStrongEmph :: Test
 tStrongEmph = "StrongEmph test" ~: 
         runParser textP "***Hello***" ~?= Right [Bold [Italics [Literal "Hello"]]]
 
+tTextNotClosed :: Test
+tTextNotClosed = "TextNotClosed test" ~: 
+        runParser textP "**Hello" ~?= Right [Literal "*",Literal "*",Literal "Hello"]
+
+tTextOneNotClosed :: Test
+tTextOneNotClosed = "TextOneNotClosed test" ~: 
+        runParser textP "**Hello*" ~?= Right [Literal "*",Italics [Literal "Hello"]]
+
 -- BLOCK-Level tests
 tHeading :: Test
 tHeading = TestList [  tHeadingH1, tHeadingH3, tHeadingH7, tHeadingNoSpace,
@@ -102,7 +110,7 @@ tHeadingIndentSpace2 = "heading indent space 2 test" ~:
 
 tHeadingIndentSpace4 :: Test 
 tHeadingIndentSpace4 = "heading indent space 4 test" ~: 
-    runParser blockP "    #### hello" ~?= Right (Paragraph [Literal "    #### hello"])
+    runParser blockP "    #### hello" ~?= Right (CodeBlock "" "#### hello")
 
 tHeadingEscape :: Test 
 tHeadingEscape = "heading escape test" ~: 
@@ -186,7 +194,7 @@ tCB3Spaces = "code block 3 spaces test" ~:
 
 tCB4Spaces :: Test 
 tCB4Spaces = "code block 4 spaces test" ~: 
-    runParser blockP "    ```\nruby```" ~?= Right (Paragraph [Literal "    ",Code [Code [Literal "\nruby"]]])
+    runParser blockP "    ```\nruby```" ~?= Right (CodeBlock "" "```\n")
 
 tCBInfoSpaces :: Test 
 tCBInfoSpaces = "code block infoSpaces test" ~: 
@@ -194,7 +202,120 @@ tCBInfoSpaces = "code block infoSpaces test" ~:
 -- test going past fewer end back ticks/unclosed
 --test indentation equals front, if more than 3 spaces at end backticks not closing seq
 
+--Indented code block
+tIndentedCode :: Test
+tIndentedCode = TestList [ tICB, tICBMd, tICBList, tICBMultipleLB, tICBEmptySpaces,
+                            tICBMultipleLBWithSpace, tPagraphBeforeICB, tPagraphBeforeICB2, 
+                            tICBTrailingLB, tICBTrailingWsp ]
+
+tICB :: Test 
+tICB = "indented code block test" ~: 
+    runParser indentedCodeBlockP "    a simple\n      indented code block" ~?= Right (CodeBlock "" "a simple\n  indented code block")
+
+tICBMd :: Test 
+tICBMd = "indented code block md test" ~: 
+    runParser indentedCodeBlockP "    *hello*" ~?= Right (CodeBlock "" "*hello*")
+
+tICBList :: Test 
+tICBList = "indented code block list test" ~: 
+    runParser indentedCodeBlockP "    - hello*" ~?= Right (CodeBlock "" "- hello*")
+
+tICBMultipleLB :: Test 
+tICBMultipleLB = "indented code block multiple line breaks test" ~: 
+    runParser indentedCodeBlockP "    a simple\n\n\n      indented code block" ~?= Right (CodeBlock "" "a simple\n\n\n  indented code block")
+
+tICBEmptySpaces :: Test 
+tICBEmptySpaces = "indented code block empty line with spaces test" ~: 
+    runParser indentedCodeBlockP "    a simple\n      \n      indented code block" ~?= Right (CodeBlock "" "a simple\n  \n  indented code block")
+
+tICBMultipleLBWithSpace :: Test 
+tICBMultipleLBWithSpace = "indented code block multiple line breaks with space test" ~: 
+    runParser indentedCodeBlockP "    a simple\n \n\n      indented code block" ~?= Right (CodeBlock "" "a simple\n\n\n  indented code block")
+
+tPagraphBeforeICB :: Test 
+tPagraphBeforeICB = "paragraph before icb test" ~: 
+    runParser documentP "a simple\n    indented code block" ~?= Right [Paragraph [Literal "a simple", Literal "    indented code block"]]
+
+tPagraphBeforeICB2 :: Test 
+tPagraphBeforeICB2 = "paragraph before icb 2 lb test" ~: 
+    runParser documentP "a simple\n\n    indented code block" ~?= Right [Paragraph [Literal "a simple"],CodeBlock "" "indented code block"]
+
+
+tICBTrailingLB :: Test 
+tICBTrailingLB = "indented code block trailing lb test" ~: 
+    runParser documentP "    a simple\n    " ~?= Right [(CodeBlock "" "a simple\n")]
+
+tICBTrailingWsp :: Test 
+tICBTrailingWsp = "indented code block trailing wsp test" ~: 
+    runParser documentP "    a simple  \n    " ~?= Right [(CodeBlock "" "a simple  \n")]
+
+-- Thematic Break tests
+
+tThematicBreaks :: Test
+tThematicBreaks = TestList [ tTB, tTBTilda, tTBDash, tTBPlus, tTB2,
+                             tTBSpaces, tTB4Spaces, tTBMoreThan3, tTBSpaceBetween,
+                             tTBOtherChar, tTBOtherChar2, tTBMixSyms ]
+
+tTB :: Test 
+tTB = "thematic break test" ~: 
+    runParser blockP "***" ~?= Right ThematicBreak
+
+tTBTilda :: Test 
+tTBTilda = "thematic break tilda test" ~: 
+    runParser blockP "~~~" ~?= Right ThematicBreak
+
+tTBDash :: Test 
+tTBDash = "thematic break dash test" ~: 
+    runParser blockP "---" ~?= Right ThematicBreak
+
+tTBPlus :: Test 
+tTBPlus = "thematic break Plus test" ~: 
+    runParser blockP "+++" ~?= Right (Paragraph [Literal "+++"])
+    
+tTB2 :: Test 
+tTB2 = "thematic break 2 test" ~: 
+    runParser blockP "--" ~?= Right (Paragraph [Literal "--"])
+
+tTBSpaces :: Test 
+tTBSpaces = "thematic break Spaces test" ~: 
+    runParser blockP "   ---" ~?= Right ThematicBreak
+
+tTB4Spaces :: Test 
+tTB4Spaces = "thematic break 4Spaces test" ~: 
+    runParser blockP "    ---" ~?= Right (CodeBlock "" "---")
+
+tTBMoreThan3 :: Test 
+tTBMoreThan3 = "thematic break MoreThan3 test" ~: 
+    runParser blockP "-----------------" ~?= Right ThematicBreak
+
+tTBSpaceBetween :: Test 
+tTBSpaceBetween = "thematic break SpaceBetween test" ~: 
+    runParser blockP "-  -     -  - -    - --  " ~?= Right ThematicBreak
+
+tTBOtherChar :: Test 
+tTBOtherChar = "thematic break OtherChar test" ~: 
+    runParser blockP "---a" ~?= Right (Paragraph [Literal "---a"])
+--
+tTBOtherChar2 :: Test 
+tTBOtherChar2 = "thematic break OtherChar2 test" ~: 
+    runParser blockP "---a--" ~?= Right (Paragraph [Literal "---a--"])
+
+--
+tTBMixSyms :: Test 
+tTBMixSyms = "thematic break MixSyms test" ~: 
+    runParser blockP "*~*" ~?= Right (Paragraph [Italics [Literal "~"]])
+
+
+
+
+
+-- tDocLeadingWsp :: Test 
+-- tDocLeadingWsp = "indented code block test" ~: 
+--     runParser documentP "\n\n\n   \n       \n\n    \n    a simple\n      indented code block" ~?= Right [(CodeBlock "" "a simple\n  indented code block")]
+    
+
 main :: IO ()
 main = do
-    _ <- runTestTT tInlines
+    _ <- runTestTT (TestList [ tInlines, tHeading, tCodeBlock, 
+                                tIndentedCode, tThematicBreaks ])
     return ()
