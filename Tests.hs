@@ -12,7 +12,8 @@ import Main
 
 tInlines :: Test
 tInlines = TestList [  tBoldTest, tItalicsTest, tCodeTest, tCodeDouble, tLiteralTest, 
-                        tLiteralUntilTest, tTextBold, tTextBoldUnderline, 
+                        tLiteralUntilTest, tLinkTest, tAutoLinkTest,
+                        tTextBold, tTextBoldUnderline, tTextAutoLink, tTextLink,
                         tTextBoldItalics, tTextNested, tStrongEmph, tTextNotClosed, tTextOneNotClosed ]
 
 tBoldTest :: Test
@@ -59,14 +60,23 @@ tLinkTest = "Link test" ~: TestList [
     ,   isLeft (parse "[bar](<ur\nl> (title))") ~?= True
     ] 
     where parse = runParser linkP
-    
-tTextLink :: Test
-tTextLink = "TextLink test" ~: TestList [
-        parse "[bar](url)" ~?= Right [Link [Literal "bar"] "url" Nothing]
-    ,   parse "*[bar*](url)" ~?= Right [Literal "*", Link [Literal "bar*"] "url" Nothing]
-    ,   parse "*[bar](url)*" ~?= Right [Italics [Link [Literal "bar"] "url" Nothing]]
-    ,   parse "[*bar*](url)" ~?= Right [Link [Italics [Literal "bar"]] "url" Nothing]
-    ] where parse = runParser textP
+
+tAutoLinkTest :: Test
+tAutoLinkTest = "AutoLink Test" ~: TestList [
+        parse "<https://google.com>" ~?= Right (Link [Literal "https://google.com"] "https://google.com" Nothing)
+    ,   parse "<a1:>" ~?= Right (Link [Literal "a1:"] "a1:" Nothing)
+    ,   parse "<a-.+:>" ~?= Right (Link [Literal "a-.+:"] "a-.+:" Nothing)
+    ,   isLeft (parse "<>") ~?= True
+    ,   isLeft (parse "<aaaa>") ~?= True
+    ,   isLeft (parse "<a:aaaa>") ~?= True
+    ,   isLeft (parse "<1a:aaaa>") ~?= True
+    ,   isLeft (parse "<a?x:aaaa>") ~?= True
+    ,   isLeft (parse "<ftp:x.^.z>") ~?= True
+    ,   isLeft (parse "<ftp://file") ~?= True
+    ,   isLeft (parse "ftp://file>") ~?= True
+    ,   isLeft (parse "<ftp://file  >") ~?= True
+    ]
+    where parse = runParser autoLinkP
 
 tTextBold :: Test
 tTextBold = "TextBold test" ~: 
@@ -96,6 +106,24 @@ tTextOneNotClosed :: Test
 tTextOneNotClosed = "TextOneNotClosed test" ~: 
         runParser textP "**Hello*" ~?= Right [Literal "*",Italics [Literal "Hello"]]
 
+tTextLink :: Test
+tTextLink = "TextLink test" ~: TestList [
+        parse "[bar](url)" ~?= Right [Link [Literal "bar"] "url" Nothing]
+    ,   parse "*[bar*](url)" ~?= Right [Literal "*", Link [Literal "bar*"] "url" Nothing]
+    ,   parse "*[bar](url)*" ~?= Right [Italics [Link [Literal "bar"] "url" Nothing]]
+    ,   parse "[*bar*](url)" ~?= Right [Link [Italics [Literal "bar"]] "url" Nothing]
+    ] where parse = runParser textP
+
+tTextAutoLink :: Test
+tTextAutoLink = "TextAutoLink" ~: TestList [
+        parse "<ftp://file>" ~?= Right [Link [Literal "ftp://file"] "ftp://file" Nothing]
+    ,   parse "_<ftp://file>_" ~?= Right [Italics [Link [Literal "ftp://file"] "ftp://file" Nothing]]
+    ,   parse "<ftp://_file_>" ~?= Right [Link [Literal "ftp://_file_"] "ftp://_file_" Nothing]
+    ,   parse "_<ftp://file_>" ~?= Right [Literal "_", Link [Literal "ftp://file_"] "ftp://file_" Nothing]
+    ,   parse "[<ftp://file>]()" ~?= Right [Literal "[", Link [Literal "ftp://file"] "ftp://file" Nothing,Literal "]()"]
+    ] where parse = runParser textP
+        
+       
 -- BLOCK-Level tests
 tHeading :: Test
 tHeading = TestList [  tHeadingH1, tHeadingH3, tHeadingH7, tHeadingNoSpace,

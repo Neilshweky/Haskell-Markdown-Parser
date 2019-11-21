@@ -5,7 +5,9 @@ import Text.ParserCombinators.Parsec hiding (runParser)
 import Control.Applicative hiding ((<|>), many, optional)
 import Control.Monad (guard, when, join)
 import Data.List (reverse)
-import Data.Char (isSpace)
+import Data.Char (isSpace, isAlpha, isAlphaNum)
+import Data.Set (Set)
+import qualified Data.Set as Set (fromList, member)
 -- list of top level stuff
 type Document = [Block]
 
@@ -50,7 +52,6 @@ someTill p end = scan
 runParser :: Parser a -> String -> Either ParseError a
 runParser p s = parse p "" s
 
-
 sorroundP :: Parser start -> Parser end -> Parser Text
 sorroundP start end = start *> someTill inlineP (try end)
 
@@ -77,31 +78,48 @@ literalP = Literal <$> some (satisfy (not . reserved))
 -- escapedP = char '\\' *> (Literal <$> ((:[]) <$> anyChar))
 
 linkP :: Parser Inline
-linkP =  try parseLink <|> parseAutoLink where
-  parseLink :: Parser Inline
-  parseLink = (\text (link, title) -> Link text link title) 
+linkP = (\text (link, title) -> Link text link title) 
                 <$> (char '[' *> (mergeInlines <$> manyTill inlineP' (char ']')))
                 <*> (char '(' *> many (char ' ') *> linkTitleP <* many (char ' ') <* (char ')'))
-  linkTitleP ::  Parser (String, Maybe String)
-  linkTitleP = (,) <$> destLinkP <*> titleP
-  destLinkP :: Parser String
-  destLinkP = try (char '<' *> manyTill (satisfy (/= '\n')) (char '>')) 
-              <|> many (satisfy (\c -> c /= ' ' && c /= ')' && c /= '\n'))
-  titleP :: Parser (Maybe String)
-  titleP = try (Just <$> (some (char ' ') *> wrappedTitleP)) <|> const Nothing <$> (many (char ' ') *> string "")
-  wrappedTitleP = choice [
-    char '"' *> manyTill anyChar  (char '"'),
-    char '\'' *> manyTill anyChar  (char '\''),
-    char '(' *> manyTill anyChar  (char ')')
-    ]
-  inlineP' :: Parser Inline
-  inlineP' = try (notFollowedBy linkP) >> inlineP
-  parseAutoLink :: Parser Inline
-  -- TODO: auto link
-  parseAutoLink = unexpected "unimplemented"
+  where              
+    linkTitleP ::  Parser (String, Maybe String)
+    linkTitleP = (,) <$> destLinkP <*> titleP
+    destLinkP :: Parser String
+    destLinkP = try (char '<' *> manyTill (satisfy (/= '\n')) (char '>')) 
+                <|> many (satisfy (\c -> c /= ' ' && c /= ')' && c /= '\n'))
+    titleP :: Parser (Maybe String)
+    titleP = try (Just <$> (some (char ' ') *> wrappedTitleP)) <|> const Nothing <$> (many (char ' ') *> string "")
+    wrappedTitleP :: Parser String
+    wrappedTitleP = choice [
+      char '"' *> manyTill anyChar  (char '"'),
+      char '\'' *> manyTill anyChar  (char '\''),
+      char '(' *> manyTill anyChar  (char ')')
+      ]
+    inlineP' :: Parser Inline
+    inlineP' = try $ do
+                  notFollowedBy autoLinkP
+                  notFollowedBy linkP
+                  inlineP
+
+autoLinkP :: Parser Inline
+autoLinkP = (\s -> Link [Literal s] s Nothing) <$> p
+  where
+    p :: Parser String
+    p = char '<' *> ((++) <$> prefixP <*> many urlChar <* (char '>'))
+    prefixP :: Parser String
+    prefixP = (\a b c -> a:b++[c])
+                <$> satisfy isAlpha
+                <*> some (satisfy (\c -> isAlphaNum c || c == '.' || c == '+' || c == '-'))
+                <*> char ':'
+    urlChar :: Parser Char
+    urlChar = satisfy (flip Set.member whiteList)
+    whiteList :: Set Char
+    whiteList =  Set.fromList ("ABCDEFGHIJKLMNOPQRSTUVWXYZ" 
+                            ++ "abcdefghijklmnopqrstuvwxyz"
+                            ++ "0123456789-._~:/?#[]@!$&'()*+,;=")
 
 inlineP :: Parser Inline 
-inlineP = (try linkP) <|> (try boldP) <|> (try italicsP) <|> (try codeP) <|> (try literalP) 
+inlineP = (try autoLinkP) <|> (try linkP) <|> (try boldP) <|> (try italicsP) <|> (try codeP) <|> (try literalP) 
           <|> Literal . (:[]) <$> (oneOf "'*', '_', '`','\n', ')', '[', ']'")
 
 textP :: Parser Text
@@ -112,9 +130,9 @@ mergeInlines [] = []
 mergeInlines [x] = [x]
 mergeInlines (x1:x2:xs) = case (x1, x2) of
   (Literal a, Literal b) -> mergeInlines $ (Literal (a ++ b)):xs
-  (Bold a, Bold b) -> mergeInlines $ (Bold (a ++ b)):xs
-  (Italics a, Italics b) -> mergeInlines $ (Italics (a ++ b)):xs
-  (Strong a, Strong b) -> mergeInlines $ (Strong (a ++ b)):xs
+  (Bold a, Bold b) -> mergeInlines $ (Bold (mergeInlines $ a ++ b)):xs
+  (Italics a, Italics b) -> mergeInlines $ (Italics (mergeInlines $ a ++ b)):xs
+  (Strong a, Strong b) -> mergeInlines $ (Strong (mergeInlines $ a ++ b)):xs
   (Code a, Code b) -> mergeInlines $ (Code (a++b)):xs
   _ -> x1:(mergeInlines (x2:xs))
 
