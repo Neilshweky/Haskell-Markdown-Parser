@@ -82,22 +82,22 @@ linkP =  try parseLink <|> parseAutoLink where
   parseLink = (\text (link, title) -> Link text link title) 
                 <$> (char '[' *> manyTill inlineP' (char ']'))
                 <*> (char '(' *> many (char ' ') *> linkTitleP <* many (char ' ') <* (char ')'))
-linkTitleP ::  Parser (String, Maybe String)
-linkTitleP = (,) <$> destLinkP <*> titleP
-destLinkP :: Parser String
-destLinkP = try (char '<' *> manyTill anyChar (char '>')) <|> many (satisfy (\c -> c /= ' ' && c /= ')'))
-titleP :: Parser (Maybe String)
-titleP = try (Just <$> (some (char ' ') *> wrappedTitleP)) <|> const Nothing <$> (many (char ' ') *> string "")
-wrappedTitleP = choice [
-  char '"' *> manyTill anyChar  (char '"'),
-  char '\'' *> manyTill anyChar  (char '\''),
-  char '(' *> manyTill anyChar  (char ')')
-  ]
-inlineP' :: Parser Inline
-inlineP' = try (notFollowedBy linkP) >> inlineP
-parseAutoLink :: Parser Inline
--- TODO: auto link
-parseAutoLink = unexpected "unimplemented"
+  linkTitleP ::  Parser (String, Maybe String)
+  linkTitleP = (,) <$> destLinkP <*> titleP
+  destLinkP :: Parser String
+  destLinkP = try (char '<' *> manyTill anyChar (char '>')) <|> many (satisfy (\c -> c /= ' ' && c /= ')'))
+  titleP :: Parser (Maybe String)
+  titleP = try (Just <$> (some (char ' ') *> wrappedTitleP)) <|> const Nothing <$> (many (char ' ') *> string "")
+  wrappedTitleP = choice [
+    char '"' *> manyTill anyChar  (char '"'),
+    char '\'' *> manyTill anyChar  (char '\''),
+    char '(' *> manyTill anyChar  (char ')')
+    ]
+  inlineP' :: Parser Inline
+  inlineP' = try (notFollowedBy linkP) >> inlineP
+  parseAutoLink :: Parser Inline
+  -- TODO: auto link
+  parseAutoLink = unexpected "unimplemented"
 
 inlineP :: Parser Inline 
 inlineP = (try linkP) <|> (try boldP) <|> (try italicsP) <|> (try codeP) <|> (try literalP) <|> Literal <$> (:[]) <$> (oneOf "'*', '_', '`','\n', ')', '[', ']'")
