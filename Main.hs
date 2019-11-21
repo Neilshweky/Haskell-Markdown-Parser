@@ -80,12 +80,13 @@ linkP :: Parser Inline
 linkP =  try parseLink <|> parseAutoLink where
   parseLink :: Parser Inline
   parseLink = (\text (link, title) -> Link text link title) 
-                <$> (char '[' *> manyTill inlineP' (char ']'))
+                <$> (char '[' *> (mergeInlines <$> manyTill inlineP' (char ']')))
                 <*> (char '(' *> many (char ' ') *> linkTitleP <* many (char ' ') <* (char ')'))
   linkTitleP ::  Parser (String, Maybe String)
   linkTitleP = (,) <$> destLinkP <*> titleP
   destLinkP :: Parser String
-  destLinkP = try (char '<' *> manyTill anyChar (char '>')) <|> many (satisfy (\c -> c /= ' ' && c /= ')'))
+  destLinkP = try (char '<' *> manyTill (satisfy (/= '\n')) (char '>')) 
+              <|> many (satisfy (\c -> c /= ' ' && c /= ')' && c /= '\n'))
   titleP :: Parser (Maybe String)
   titleP = try (Just <$> (some (char ' ') *> wrappedTitleP)) <|> const Nothing <$> (many (char ' ') *> string "")
   wrappedTitleP = choice [
@@ -100,10 +101,23 @@ linkP =  try parseLink <|> parseAutoLink where
   parseAutoLink = unexpected "unimplemented"
 
 inlineP :: Parser Inline 
-inlineP = (try linkP) <|> (try boldP) <|> (try italicsP) <|> (try codeP) <|> (try literalP) <|> Literal <$> (:[]) <$> (oneOf "'*', '_', '`','\n', ')', '[', ']'")
+inlineP = (try linkP) <|> (try boldP) <|> (try italicsP) <|> (try codeP) <|> (try literalP) 
+          <|> Literal . (:[]) <$> (oneOf "'*', '_', '`','\n', ')', '[', ']'")
 
 textP :: Parser Text
-textP = some inlineP  
+textP = mergeInlines <$> some inlineP
+
+mergeInlines :: Text -> Text
+mergeInlines [] = []
+mergeInlines [x] = [x]
+mergeInlines (x1:x2:xs) = case (x1, x2) of
+  (Literal a, Literal b) -> mergeInlines $ (Literal (a ++ b)):xs
+  (Bold a, Bold b) -> mergeInlines $ (Bold (a ++ b)):xs
+  (Italics a, Italics b) -> mergeInlines $ (Italics (a ++ b)):xs
+  (Strong a, Strong b) -> mergeInlines $ (Strong (a ++ b)):xs
+  (Code a, Code b) -> mergeInlines $ (Code (a++b)):xs
+  _ -> x1:(mergeInlines (x2:xs))
+
 
 --Done inline parsers
 
@@ -143,7 +157,7 @@ headingP =
 
 
 plainTextP :: Char -> Parser PlainText
-plainTextP c = many (satisfy (not . (==c)))                   
+plainTextP c = many (satisfy (/=c))                   
 
 codeBlockP :: Parser Block
 codeBlockP = codeBlockSurround '`' <|> codeBlockSurround '~'
