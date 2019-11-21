@@ -38,6 +38,7 @@ data Inline
   | Italics Text
   | Strong Text
   | Code Text
+  | Link Text String (Maybe String)
   deriving (Eq, Show)
 
 --TODO fix code spans
@@ -67,7 +68,7 @@ codeP :: Parser Inline
 codeP = Code <$> ((try (parseSurrounded "``" "``")) <|> (parseSurrounded "`" "`"))
 
 reserved :: Char -> Bool
-reserved c = c `elem` ['*', '_', '`','\n']
+reserved c = c `elem` ['*', '_', '`','\n', ')', '[', ']']
 
 literalP :: Parser Inline
 literalP = Literal <$> some (satisfy (not . reserved))
@@ -75,8 +76,31 @@ literalP = Literal <$> some (satisfy (not . reserved))
 -- escapedP :: Parser Inline
 -- escapedP = char '\\' *> (Literal <$> ((:[]) <$> anyChar))
 
+linkP :: Parser Inline
+linkP =  try parseLink <|> parseAutoLink where
+  parseLink :: Parser Inline
+  parseLink = (\text (link, title) -> Link text link title) 
+                <$> (char '[' *> manyTill inlineP' (char ']'))
+                <*> (char '(' *> many (char ' ') *> linkTitleP <* many (char ' ') <* (char ')'))
+linkTitleP ::  Parser (String, Maybe String)
+linkTitleP = (,) <$> destLinkP <*> titleP
+destLinkP :: Parser String
+destLinkP = try (char '<' *> manyTill anyChar (char '>')) <|> many (satisfy (\c -> c /= ' ' && c /= ')'))
+titleP :: Parser (Maybe String)
+titleP = try (Just <$> (some (char ' ') *> wrappedTitleP)) <|> const Nothing <$> (many (char ' ') *> string "")
+wrappedTitleP = choice [
+  char '"' *> manyTill anyChar  (char '"'),
+  char '\'' *> manyTill anyChar  (char '\''),
+  char '(' *> manyTill anyChar  (char ')')
+  ]
+inlineP' :: Parser Inline
+inlineP' = try (notFollowedBy linkP) >> inlineP
+parseAutoLink :: Parser Inline
+-- TODO: auto link
+parseAutoLink = unexpected "unimplemented"
+
 inlineP :: Parser Inline 
-inlineP = (try boldP) <|> (try italicsP) <|> (try codeP) <|> (try literalP) <|> Literal <$> (:[]) <$> (oneOf "'*', '_', '`','\n'")
+inlineP = (try linkP) <|> (try boldP) <|> (try italicsP) <|> (try codeP) <|> (try literalP) <|> Literal <$> (:[]) <$> (oneOf "'*', '_', '`','\n', ')', '[', ']'")
 
 textP :: Parser Text
 textP = some inlineP  
