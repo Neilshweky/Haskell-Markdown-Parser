@@ -39,8 +39,9 @@ data Inline
   | Bold Text
   | Italics Text
   | Strong Text
-  | Code Text
+  | Code String
   | Link Text String (Maybe String)
+  | Image String String (Maybe String)
   deriving (Eq, Show)
 
 --TODO fix code spans
@@ -66,24 +67,31 @@ italicsP = Italics <$> ((parseSurrounded "*" "*") <|> (parseSurrounded "_" "_"))
 
 -- strip whitespace?
 codeP :: Parser Inline
-codeP = Code <$> ((try (parseSurrounded "``" "``")) <|> (parseSurrounded "`" "`"))
+codeP = Code 
+        <$> (try (string "``" *> p (string "``"))
+        <|> (char '`' *> p (char '`')))
+  where
+    p :: Parser a -> Parser String
+    p = manyTill (notFollowedBy (string "\n\n") >> f <$> anyChar)
+    f x = if x=='\n' then ' ' else x
+
+rsvdChars :: String
+rsvdChars = "*_`)[]<!"
 
 reserved :: Char -> Bool
-reserved c = c `elem` ['*', '_', '`','\n', ')', '[', ']']
+reserved c = c `elem` rsvdChars
 
 literalP :: Parser Inline
-literalP = Literal <$> some (satisfy (not . reserved))
+literalP = Literal <$> some (notFollowedBy (string "\n\n") >> satisfy (not . reserved))
 
 -- escapedP :: Parser Inline
 -- escapedP = char '\\' *> (Literal <$> ((:[]) <$> anyChar))
 
-linkP :: Parser Inline
-linkP = (\text (link, title) -> Link text link title) 
-                <$> (char '[' *> (mergeInlines <$> manyTill inlineP' (char ']')))
-                <*> (char '(' *> many (char ' ') *> linkTitleP <* many (char ' ') <* (char ')'))
+
+linkDestTitleP :: Parser (String, Maybe String)
+linkDestTitleP = (char '(' *> many (char ' ') *> p <* many (char ' ') <* (char ')'))
   where              
-    linkTitleP ::  Parser (String, Maybe String)
-    linkTitleP = (,) <$> destLinkP <*> titleP
+    p = (,) <$> destLinkP <*> titleP
     destLinkP :: Parser String
     destLinkP = try (char '<' *> manyTill (satisfy (/= '\n')) (char '>')) 
                 <|> many (satisfy (\c -> c /= ' ' && c /= ')' && c /= '\n'))
@@ -95,17 +103,28 @@ linkP = (\text (link, title) -> Link text link title)
       char '\'' *> manyTill anyChar  (char '\''),
       char '(' *> manyTill anyChar  (char ')')
       ]
+
+linkP :: Parser Inline
+linkP = (\text (link, title) -> Link text link title) 
+                <$> (char '[' *> (mergeInlines <$> manyTill inlineP' (char ']')))
+                <*> linkDestTitleP
+  where
     inlineP' :: Parser Inline
     inlineP' = try $ do
                   notFollowedBy autoLinkP
                   notFollowedBy linkP
                   inlineP
 
+imageP :: Parser Inline
+imageP = (\alt (link, title) -> Image alt link title)
+         <$> (string "![" *>  manyTill anyChar (char ']'))
+         <*> linkDestTitleP
+
 autoLinkP :: Parser Inline
 autoLinkP = (\s -> Link [Literal s] s Nothing) <$> p
   where
     p :: Parser String
-    p = char '<' *> ((++) <$> prefixP <*> many urlChar <* (char '>'))
+    p = char '<' *> ((++) <$> prefixP <*> (notFollowedBy codeP >> many urlChar <* (char '>')))
     prefixP :: Parser String
     prefixP = (\a b c -> a:b++[c])
                 <$> satisfy isAlpha
@@ -119,8 +138,9 @@ autoLinkP = (\s -> Link [Literal s] s Nothing) <$> p
                             ++ "0123456789-._~:/?#[]@!$&'()*+,;=")
 
 inlineP :: Parser Inline 
-inlineP = (try autoLinkP) <|> (try linkP) <|> (try boldP) <|> (try italicsP) <|> (try codeP) <|> (try literalP) 
-          <|> Literal . (:[]) <$> (oneOf "'*', '_', '`','\n', ')', '[', ']'")
+inlineP = (try codeP) <|> (try imageP) <|> (try autoLinkP) <|> (try linkP) 
+          <|> (try boldP) <|> (try italicsP) <|> (try literalP) 
+          <|> Literal . (:[]) <$> (oneOf rsvdChars)
 
 textP :: Parser Text
 textP = mergeInlines <$> some inlineP

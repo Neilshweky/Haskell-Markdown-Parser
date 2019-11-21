@@ -12,29 +12,43 @@ import Main
 
 tInlines :: Test
 tInlines = TestList [  tBoldTest, tItalicsTest, tCodeTest, tCodeDouble, tLiteralTest, 
-                        tLiteralUntilTest, tLinkTest, tAutoLinkTest,
+                        tLiteralUntilTest, tLinkTest, tAutoLinkTest, tImageTest,
                         tTextBold, tTextBoldUnderline, tTextAutoLink, tTextLink,
                         tTextBoldItalics, tTextNested, tStrongEmph, tTextNotClosed, tTextOneNotClosed ]
 
 tBoldTest :: Test
-tBoldTest = "bold test" ~: 
+tBoldTest = "bold test" ~: TestList [ 
         runParser boldP "**hello**" ~?= Right (Bold [Literal "hello"])
+    ,   runParser boldP "**hel\nlo**" ~?= Right (Bold [Literal "hel\nlo"])
+    ,   isLeft (runParser boldP "**hel\n\nlo**") ~?= True
+    ]
 
 tItalicsTest :: Test
-tItalicsTest = "italics test" ~: 
+tItalicsTest = "italics test" ~: TestList [
         runParser italicsP "*hello*" ~?= Right (Italics [Literal "hello"])
+    ,   runParser italicsP "*hel\nlo*" ~?= Right (Italics [Literal "hel\nlo"])
+    ,   isLeft (runParser italicsP "*hel\n\nlo*") ~?= True
+    ]
     
 tCodeTest :: Test
-tCodeTest = "Code test" ~: 
-        runParser codeP "`hello`" ~?= Right (Code [Literal "hello"])
+tCodeTest = "Code test" ~:  TestList [
+        runParser codeP "`hello`" ~?= Right (Code "hello")
+    ,   runParser codeP "`hel\nlo`" ~?= Right (Code "hel lo")
+    ,   isLeft (runParser codeP "`hello\n\nlo`") ~?= True
+    ]
 
 tCodeDouble :: Test
-tCodeDouble = "Code Double" ~: 
-        runParser codeP "``hello``" ~?= Right (Code [Literal "hello"])                
-        
+tCodeDouble = "Code Double" ~: TestList [
+        runParser codeP "``hello``" ~?= Right (Code "hello")      
+    ,   runParser codeP "``hel\nlo``" ~?= Right (Code "hel lo")
+    ]
+
 tLiteralTest :: Test
-tLiteralTest = "Literal test" ~: 
+tLiteralTest = "Literal test" ~: TestList [
         runParser literalP "hello" ~?= Right (Literal "hello")
+    ,   runParser literalP "line1\nline2" ~?= Right (Literal "line1\nline2")
+    ,   runParser literalP "line1\n\nline2" ~?= Right (Literal "line1")
+    ]
 
 tLiteralUntilTest :: Test
 tLiteralUntilTest = "LiteralUntil test" ~: 
@@ -78,6 +92,16 @@ tAutoLinkTest = "AutoLink Test" ~: TestList [
     ]
     where parse = runParser autoLinkP
 
+tImageTest :: Test
+tImageTest = "Image Test" ~: TestList [
+        parse "![]()" ~?= Right (Image "" "" Nothing)
+    ,   parse "![alt]()" ~?= Right (Image "alt" "" Nothing)
+    ,   parse "![](src)" ~?= Right (Image "" "src" Nothing)
+    ,   parse "![alt](<src> \"title\")" ~?= Right (Image "alt" "src" (Just "title"))
+    ,   parse "![__alt__](src (title))" ~?= Right (Image "__alt__" "src" (Just "title")) 
+    ]
+    where parse = runParser imageP
+
 tTextBold :: Test
 tTextBold = "TextBold test" ~: 
         runParser textP "world **Hello**" ~?= Right [Literal "world ",Bold [Literal "Hello"]]
@@ -109,9 +133,12 @@ tTextOneNotClosed = "TextOneNotClosed test" ~:
 tTextLink :: Test
 tTextLink = "TextLink test" ~: TestList [
         parse "[bar](url)" ~?= Right [Link [Literal "bar"] "url" Nothing]
-    ,   parse "*[bar*](url)" ~?= Right [Literal "*", Link [Literal "bar*"] "url" Nothing]
-    ,   parse "*[bar](url)*" ~?= Right [Italics [Link [Literal "bar"] "url" Nothing]]
+    ,   parse "*foo[bar*](url)" ~?= Right [Literal "*foo", Link [Literal "bar*"] "url" Nothing]
+    ,   parse "*foo[bar](url)*" ~?= Right [Italics [Literal "foo", Link [Literal "bar"] "url" Nothing]]
     ,   parse "[*bar*](url)" ~?= Right [Link [Italics [Literal "bar"]] "url" Nothing]
+    ,   parse "text[link](url)text" ~?= Right [Literal "text", Link [Literal "link"] "url" Nothing, Literal "text"]
+    ,   parse "`[`]()" ~?= Right [Code "[", Literal "]()"]
+    ,   parse "[`]()`" ~?= Right [Literal "[", Code "]()"]
     ] where parse = runParser textP
 
 tTextAutoLink :: Test
@@ -121,9 +148,34 @@ tTextAutoLink = "TextAutoLink" ~: TestList [
     ,   parse "<ftp://_file_>" ~?= Right [Link [Literal "ftp://_file_"] "ftp://_file_" Nothing]
     ,   parse "_<ftp://file_>" ~?= Right [Literal "_", Link [Literal "ftp://file_"] "ftp://file_" Nothing]
     ,   parse "[<ftp://file>]()" ~?= Right [Literal "[", Link [Literal "ftp://file"] "ftp://file" Nothing,Literal "]()"]
+    ,   parse "text<link:url>text" ~?= Right [Literal "text", Link [Literal "link:url"] "link:url" Nothing, Literal "text"]
+    ,   parse "<`>`" ~?= Right [Literal "<", Code ">"]
     ] where parse = runParser textP
-        
-       
+
+tTextImage :: Test
+tTextImage = "TextImage" ~: TestList [
+        "concated with other inlines" ~: 
+        parse "`code`![alt](src)_italics___bold__text" ~?= 
+            Right [Code "code", Image "alt" "src" Nothing, Italics [Literal "italics"], Bold [Literal "bold"], Literal "text"]
+    ,   "image in image" ~: 
+        parse "![![]()]()" ~?= Right [Image "![" "" Nothing, Literal "]()"] 
+    ,   "inlines in image" ~: 
+        parse "![__alt__]()" ~?= Right [Image "__alt__" "" Nothing]
+    ,   "image in link" ~: 
+        parse "[![alt](src)](href)" ~?= Right [Link [Image "alt" "src" Nothing] "href" Nothing]
+    ,   "image in autolink" ~: 
+        parse "<![alt](src)>" ~?= Right [Literal "<", Image "alt" "src" Nothing, Literal ">"]
+    ,   "image in italics" ~:
+        parse "_![_](_)_" ~?= Right [Italics [Image "_" "_" Nothing]]
+    ,   "priority with bold" ~: 
+        parse "__![__]()" ~?= Right [Literal "__", Image "__" "" Nothing]
+    ,   "priority with inline code block" ~: 
+        parse "`![`]()" ~?= Right [Code "![", Literal "]()"]
+    ,   parse "![`]()`" ~?= Right [Literal "![", Code "]()"]
+    ]
+    where parse = runParser textP
+    
+
 -- BLOCK-Level tests
 tHeading :: Test
 tHeading = TestList [  tHeadingH1, tHeadingH3, tHeadingH7, tHeadingNoSpace,
@@ -223,7 +275,7 @@ tCBCode = "code block info test" ~:
 
 tCBTwoBackTicks :: Test 
 tCBTwoBackTicks = "code block TwoBackTicks test" ~: 
-    runParser blockP "``ruby``" ~?= Right (Paragraph [Code [Literal "ruby"]])
+    runParser blockP "``ruby``" ~?= Right (Paragraph [Code "ruby"])
 
 tCBNoInfo :: Test 
 tCBNoInfo = "code block NoInfo test" ~: 
@@ -291,7 +343,7 @@ tICBMultipleLBWithSpace = "indented code block multiple line breaks with space t
 
 tPagraphBeforeICB :: Test 
 tPagraphBeforeICB = "paragraph before icb test" ~: 
-    runParser documentP "a simple\n    indented code block" ~?= Right [Paragraph [Literal "a simple", Literal "    indented code block"]]
+    runParser documentP "a simple\n    not indented code block" ~?= Right [Paragraph [Literal "a simple\n    not indented code block"]]
 
 tPagraphBeforeICB2 :: Test 
 tPagraphBeforeICB2 = "paragraph before icb 2 lb test" ~: 
