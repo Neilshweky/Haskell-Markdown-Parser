@@ -1,6 +1,7 @@
 module Tests where
 
 import Test.HUnit (Test(..), (~?=), (~:), runTestTT)
+import Data.Either (isLeft)
 -- import Test.QuickCheck (Arbitrary(..), Testable(..), Gen, elements,
 --     oneof, frequency, sized, quickCheckWith, stdArgs, maxSize,
 --     classify,  maxSuccess, listOf, resize, scale, (==>))
@@ -38,6 +39,34 @@ tLiteralUntilTest :: Test
 tLiteralUntilTest = "LiteralUntil test" ~: 
         runParser literalP "hello* world" ~?= Right (Literal "hello")
 
+tLinkTest :: Test
+tLinkTest = "Link test" ~: TestList [
+        parse "[bar](url)" ~?= Right (Link [Literal "bar"] "url" Nothing)
+    ,   parse "[bar](<url>)" ~?= Right (Link [Literal "bar"] "url" Nothing)
+    ,   parse "[bar](<ur  l>)" ~?= Right (Link [Literal "bar"] "ur  l" Nothing)
+    ,   parse "[bar](url \"title\")" ~?= Right (Link [Literal "bar"] "url" (Just "title"))
+    ,   parse "[bar](url 'title')" ~?= Right (Link [Literal "bar"] "url" (Just "title"))
+    ,   parse "[bar](url (title))" ~?= Right (Link [Literal "bar"] "url" (Just "title"))
+    ,   parse "[bar](<url> \"title\")" ~?= Right (Link [Literal "bar"] "url" (Just "title"))
+    ,   parse "[bar](<url> 'title')" ~?= Right (Link [Literal "bar"] "url" (Just "title"))
+    ,   parse "[bar](<url> (title))" ~?= Right (Link [Literal "bar"] "url" (Just "title"))
+    ,   parse "[bar](   url   )" ~?= Right (Link [Literal "bar"] "url" Nothing)
+    ,   isLeft (parse "[bar](ur  l)") ~?= True
+    ,   isLeft (parse "[bar[bar](foo)](foo)") ~?= True
+    ,   parse "[]())" ~?= Right (Link [] "" Nothing)
+    ,   parse "[ba\nr](<url> (title))" ~?= Right (Link [Literal "ba\nr"] "url" (Just "title"))
+    ,   parse "[bar](<url> (tit\nle))" ~?= Right (Link [Literal "bar"] "url" (Just "tit\nle"))
+    ,   isLeft (parse "[bar](<ur\nl> (title))") ~?= True
+    ] 
+    where parse = runParser linkP
+    
+tTextLink :: Test
+tTextLink = "TextLink test" ~: TestList [
+        parse "[bar](url)" ~?= Right [Link [Literal "bar"] "url" Nothing]
+    ,   parse "*[bar*](url)" ~?= Right [Literal "*", Link [Literal "bar*"] "url" Nothing]
+    ,   parse "*[bar](url)*" ~?= Right [Italics [Link [Literal "bar"] "url" Nothing]]
+    ,   parse "[*bar*](url)" ~?= Right [Link [Italics [Literal "bar"]] "url" Nothing]
+    ] where parse = runParser textP
 
 tTextBold :: Test
 tTextBold = "TextBold test" ~: 
@@ -61,7 +90,7 @@ tStrongEmph = "StrongEmph test" ~:
 
 tTextNotClosed :: Test
 tTextNotClosed = "TextNotClosed test" ~: 
-        runParser textP "**Hello" ~?= Right [Literal "*",Literal "*",Literal "Hello"]
+        runParser textP "**Hello" ~?= Right [Literal "**Hello"]
 
 tTextOneNotClosed :: Test
 tTextOneNotClosed = "TextOneNotClosed test" ~: 
