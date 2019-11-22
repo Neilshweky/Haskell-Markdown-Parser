@@ -144,7 +144,7 @@ autoLinkP = (\s -> Link [Literal s] s Nothing) <$> p
                             ++ "0123456789-._~:/?#[]@!$&'()*+,;=")
 
 inlineP :: Parser Inline 
-inlineP = notFollowedBy (endOfLine *> endOfLine) *> ((try codeP) <|> (try imageP) <|> (try autoLinkP) <|> (try linkP) 
+inlineP = notFollowedBy (endOfLine *> wsp *> endOfLine) *> ((try codeP) <|> (try imageP) <|> (try autoLinkP) <|> (try linkP) 
           <|> (try boldP) <|> (try italicsP) <|> (try literalP)
           <|> Literal . (:[]) <$> ((try (endOfLine <* wsp)) <|> (oneOf rsvdChars)))
 
