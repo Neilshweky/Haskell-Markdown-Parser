@@ -43,6 +43,7 @@ data Inline
   | Code String
   | Link Text String (Maybe String)
   | Image String String (Maybe String)
+  | HardBreak
   deriving (Eq, Show)
 
 --TODO fix code spans
@@ -82,7 +83,7 @@ codeP = Code
     f x = if x=='\n' then ' ' else x
 
 rsvdChars :: String
-rsvdChars = "*_`)[]<!#\n"
+rsvdChars = "*_`)[] <!#\n\\"
 
 reserved :: Char -> Bool
 reserved c = c `elem` rsvdChars
@@ -143,9 +144,16 @@ autoLinkP = (\s -> Link [Literal s] s Nothing) <$> p
                             ++ "abcdefghijklmnopqrstuvwxyz"
                             ++ "0123456789-._~:/?#[]@!$&'()*+,;=")
 
+hardBreakP :: Parser Inline
+hardBreakP = do
+  try $ string "\\\n" <|> count 2 (char ' ') <* many (char ' ')
+  try $ lookAhead $ char '\n' <* satisfy (/= '\n')
+  return HardBreak
+
 inlineP :: Parser Inline 
-inlineP = notFollowedBy (endOfLine *> wsp *> endOfLine) *> ((try codeP) <|> (try imageP) <|> (try autoLinkP) <|> (try linkP) 
-          <|> (try boldP) <|> (try italicsP) <|> (try literalP)
+inlineP = notFollowedBy (endOfLine *> wsp *> endOfLine) *> (
+          (try codeP) <|> (try imageP) <|> (try autoLinkP) <|> (try linkP) 
+          <|> (try boldP) <|> (try italicsP) <|> (try hardBreakP) <|> (try literalP)
           <|> Literal . (:[]) <$> ((try (endOfLine <* wsp)) <|> (oneOf rsvdChars)))
 
 textP :: Parser Text
