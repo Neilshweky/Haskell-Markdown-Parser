@@ -146,8 +146,8 @@ autoLinkP = (\s -> Link [Literal s] s Nothing) <$> p
 
 hardBreakP :: Parser Inline
 hardBreakP = do
-  try $ string "\\\n" <|> count 2 (char ' ') <* many (char ' ')
-  try $ lookAhead $ char '\n' <* satisfy (/= '\n')
+  try $ string "\\" <|> count 2 (char ' ') <* many (char ' ')
+  try $ lookAhead $ char '\n' <* many (char ' ') <* satisfy (/= '\n')
   return HardBreak
 
 inlineP :: Parser Inline 

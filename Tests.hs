@@ -12,8 +12,8 @@ import Main
 
 tInlines :: Test
 tInlines = TestList [  tBoldTest, tItalicsTest, tCodeTest, tCodeDouble, tLiteralTest, 
-                        tLiteralUntilTest, tLinkTest, tAutoLinkTest, tImageTest,
-                        tTextBold, tTextBoldUnderline, tTextAutoLink, tTextLink,
+                        tLiteralUntilTest, tLinkTest, tAutoLinkTest, tImageTest, tHardBreakTest,
+                        tTextBold, tTextBoldUnderline, tTextAutoLink, tTextLink, tTextHardBreak,
                         tTextBoldItalics, tTextNested, tStrongEmph, tTextNotClosed, tTextOneNotClosed ]
 
 tBoldTest :: Test
@@ -46,13 +46,24 @@ tCodeDouble = "Code Double" ~: TestList [
 tLiteralTest :: Test
 tLiteralTest = "Literal test" ~: TestList [
         runParser literalP "hello" ~?= Right (Literal "hello")
-    ,   runParser textP "line1\nline2" ~?= Right ([Literal "line1\nline2"])
+    ,   runParser textP "line1\nline2" ~?= Right [Literal "line1\nline2"]
     ,   runParser literalP "line1\n\nline2" ~?= Right (Literal "line1")
     ]
 
 tLiteralUntilTest :: Test
 tLiteralUntilTest = "LiteralUntil test" ~: 
         runParser literalP "hello* world" ~?= Right (Literal "hello")
+
+tHardBreakTest :: Test
+tHardBreakTest = "HardBreak test" ~: TestList [
+        parse "\\\na" ~?= Right HardBreak
+    ,   parse "  \na" ~?= Right HardBreak
+    ,   parse "      \na" ~?= Right HardBreak
+    ,   isLeft (parse "\\\n") ~?= True
+    ,   isLeft (parse "\\\n\n") ~?= True
+    ,   isLeft (parse "\\  \na") ~?= True
+    ]   
+    where parse = runParser hardBreakP
 
 tLinkTest :: Test
 tLinkTest = "Link test" ~: TestList [
@@ -175,6 +186,15 @@ tTextImage = "TextImage" ~: TestList [
     ]
     where parse = runParser textP
     
+tTextHardBreak :: Test
+tTextHardBreak = "TextHardBreak" ~: TestList [
+        parse "_line1\\\nline2_" ~?= Right [Italics [Literal "line1", HardBreak, Literal "\nline2"]]
+    ,   parse "__line1     \nline2__" ~?= Right [Bold [Literal "line1", HardBreak, Literal "\nline2"]]
+    ,   parse "[link  \nbreak](href)" ~?= Right [Link [Literal "link", HardBreak, Literal "\nbreak"] "href" Nothing]
+    ,   parse "a\\\n\\\nb" ~?= Right [Literal "a", HardBreak, Literal "\n", HardBreak, Literal "\nb"]
+    ,   parse "a  \n  \nb" ~?= Right [Literal "a  "] -- not a line break
+    ]
+    where parse = runParser textP
 
 -- BLOCK-Level tests
 tHeading :: Test
