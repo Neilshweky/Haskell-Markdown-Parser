@@ -3,7 +3,7 @@ module Main where
 import Text.Parsec.Char
 import Text.ParserCombinators.Parsec hiding (runParser)
 import Control.Applicative hiding ((<|>), many, optional)
-import Control.Monad (guard, when, join)
+import Control.Monad (guard, when, join,liftM2)
 import Data.List (reverse)
 import Data.Char (isSpace)
 -- list of top level stuff
@@ -21,9 +21,10 @@ data HeadingLevel
 data Block 
   = Heading HeadingLevel Text
   | Paragraph Text
-  | BlockQuote Text
+  | BlockQuote [Block]
   | CodeBlock Info PlainText
   | ThematicBreak
+  | UnorderedList [Block]
   deriving (Eq, Show)
 
 type Info = String
@@ -44,6 +45,11 @@ data Inline
 someTill :: Parser a -> Parser end -> Parser [a]
 someTill p end = scan
                  where scan = (try ((:[]) <$> p <* end)) <|>
+                              (liftA2 (:) p scan) <|> empty
+
+someTillNonCommittal :: Parser a -> Parser end -> Parser [a]
+someTillNonCommittal p end = scan
+                  where scan = (try ((:[]) <$> p <* (lookAhead $ end))) <|>
                               (liftA2 (:) p scan) <|> empty
 
 runParser :: Parser a -> String -> Either ParseError a
@@ -76,7 +82,7 @@ literalP = Literal <$> some (satisfy (not . reserved))
 -- escapedP = char '\\' *> (Literal <$> ((:[]) <$> anyChar))
 
 inlineP :: Parser Inline 
-inlineP = (try boldP) <|> (try italicsP) <|> (try codeP) <|> (try literalP) <|> Literal <$> (:[]) <$> (oneOf "'*', '_', '`','\n'")
+inlineP = (try boldP) <|> (try italicsP) <|> (try codeP) <|> (try literalP) <|> Literal <$> (:[]) <$> anyChar
 
 textP :: Parser Text
 textP = some inlineP  
@@ -112,9 +118,9 @@ headingP =
   do -- parse initial spaces
     sps <- wsp
     guard (length sps < 4)
-    l <- many1 (char '#') 
+    l <- some (char '#') 
     guard ((length l) < 7 && (length l) > 0)
-    t <- some (char ' ') *> textP
+    t <- some (char ' ') *> (try (someTill inlineP endOfLine) <|> textP)
     return (Heading (headingLevel (length l)) (if length t == 0 then t else (dropSpaces t)))
 
 
@@ -162,10 +168,18 @@ indentedLineP = do
 indentedCodeBlockP :: Parser Block
 indentedCodeBlockP = (CodeBlock "") <$> join <$> some indentedLineP
 
+reservedBlock :: Char -> Bool
+reservedBlock c = c `elem` ['#', '>', '-', '~', '*']
+
+interruptsP :: Parser Block
+interruptsP = (try thematicBreakP) <|> (try headingP) <|> (try codeBlockP) 
+
 lineP :: Parser Text
 lineP = do 
-  _ <- lookAhead $ satisfy (not . (=='\n'))
-  text <- (try (someTill inlineP (char '\n'))) <|> textP
+  _ <- notFollowedBy endOfLine
+  _ <- notFollowedBy interruptsP
+  _ <- wsp
+  text <- (try (someTill inlineP (char '\n'))) <|> textP 
   return text
 
 paragraphP :: Parser Block
@@ -185,11 +199,42 @@ thematicBreakP = wsp *> (tbP '*' <|> tbP '~' <|> tbP '-')
 
 -- blockQuoteP start here tomorrow!
 
+cLineP :: Parser Block
+cLineP = do
+  _ <- wsp
+  _ <- char '>' *> optional (char ' ')
+  t <- blockP
+  t' <- many (eolWspP)
+  return t
+
+blockQuoteP :: Parser Block
+blockQuoteP = BlockQuote <$> some cLineP
+
+-- -- no p in list item if no \n
+-- uListItem :: Int -> Parser Block 
+-- uListItem i = do
+--   _ <- try (wsp *> (oneOf "-*+") *> some (char ' '))
+--   block <- blockP
+--   _ <- many endOfLine
+--   blocks <- many (endOfLine *> (count i (char ' ') *> blockP))
+--   return (liftM2 (:) block blocks)
+
+-- bulletListP :: Parser Block
+-- bulletListP = do
+--   sps <- lookAhead (wsp <* (oneOf "-*+"))
+--   sps2 <- lookAhead (wsp *> (oneOf "-*+") *> some (char ' '))
+--   blocks <- some (uListItem (length sps + length sps2 + 1))
+--   return (UnorderedList blocks)
+  
+
+-- listP :: Parser Block
+-- listP = bulletListP -- <|> orderedListP
+
 blockP :: Parser Block
-blockP = ((try indentedCodeBlockP) <|> (try thematicBreakP) <|> (try headingP) <|> (try codeBlockP) <|> paragraphP) <* optional (try (manyTill anyChar endOfLine) <|> many anyChar)
+blockP = ((try indentedCodeBlockP) <|> (try thematicBreakP) <|> (try headingP) <|> (try codeBlockP) <|> (try paragraphP)) <* optional endOfLine 
 
 documentP :: Parser Document
-documentP = some blockP
+documentP = many blockP
 
 
 

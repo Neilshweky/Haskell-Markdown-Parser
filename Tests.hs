@@ -234,7 +234,7 @@ tICBMultipleLBWithSpace = "indented code block multiple line breaks with space t
 
 tPagraphBeforeICB :: Test 
 tPagraphBeforeICB = "paragraph before icb test" ~: 
-    runParser documentP "a simple\n    indented code block" ~?= Right [Paragraph [Literal "a simple", Literal "    indented code block"]]
+    runParser documentP "a simple\n    indented code block" ~?= Right [Paragraph [Literal "a simple", Literal "indented code block"]]
 
 tPagraphBeforeICB2 :: Test 
 tPagraphBeforeICB2 = "paragraph before icb 2 lb test" ~: 
@@ -305,17 +305,52 @@ tTBMixSyms :: Test
 tTBMixSyms = "thematic break MixSyms test" ~: 
     runParser blockP "*~*" ~?= Right (Paragraph [Italics [Literal "~"]])
 
+-- Paragraph tests
+tParagraph :: Test
+tParagraph = TestList [ tPar, tParBadHeading, tParIntCodeBlock ]
 
+tPar :: Test 
+tPar = "paragraph test" ~: 
+    runParser documentP "hello, world\n # hello" ~?= Right ([Paragraph [Literal "hello, world"], Heading H1 [Literal "hello"]])
 
+tParBadHeading :: Test 
+tParBadHeading = "paragraph bad heading test" ~: 
+    runParser documentP "hello, world\n ######## hello" ~?= Right ([Paragraph [Literal "hello, world", Literal "######## hello"]])
 
+tParIntCodeBlock :: Test 
+tParIntCodeBlock = "paragraph bad heading test" ~: 
+    runParser documentP "hello, world\n ```\n```" ~?= Right ([Paragraph [Literal "hello, world"], CodeBlock "" ""])
 
 -- tDocLeadingWsp :: Test 
 -- tDocLeadingWsp = "indented code block test" ~: 
 --     runParser documentP "\n\n\n   \n       \n\n    \n    a simple\n      indented code block" ~?= Right [(CodeBlock "" "a simple\n  indented code block")]
+ 
+-- LIST TESTS 
+-- tUnorderedList :: Test
+-- tUnorderedList = TestList [ tUL, tULHeading, tUL3Spaces, tULICB ]
     
+-- tUL :: Test 
+-- tUL = "UL test" ~: 
+--     runParser listP "- hello\n- world" ~?= Right (UnorderedList [Paragraph [Literal "hello"],Paragraph [Literal "world"]])
+
+-- tULHeading :: Test 
+-- tULHeading = "ULHeading test" ~: 
+--     runParser listP "- ## hello  \n- world" ~?= Right (UnorderedList [Heading H2 [Literal "hello"],Paragraph [Literal "world"]])
+
+-- tUL3Spaces :: Test 
+-- tUL3Spaces = "UL3Spaces test" ~: 
+--     runParser listP "   - ## hello  \n- world" ~?= Right (UnorderedList [Heading H2 [Literal "hello"],Paragraph [Literal "world"]])
+
+-- --
+-- tULICB :: Test 
+-- tULICB = "ULICB test" ~: 
+--     runParser listP "   - ## hello  \n- world" ~?= Right (UnorderedList [Heading H2 [Literal "hello"],Paragraph [Literal "world"]])
+
+
 
 main :: IO ()
 main = do
     _ <- runTestTT (TestList [ tInlines, tHeading, tCodeBlock, 
-                                tIndentedCode, tThematicBreaks ])
+                                tIndentedCode, tThematicBreaks, tParagraph
+                                 ])
     return ()
