@@ -20,7 +20,7 @@ noTitleLink_ :: Text -> String -> Html ()
 noTitleLink_ t h = a_ [href_ $ pack h] (convertText t)
 
 noTitleImg_ :: String -> String -> Html ()
-noTitleImg_ a s = img_ [alt_ $ pack a, src_ $ pack s]
+noTitleImg_ a s = with (makeXmlElementNoEnd "img") [ src_ $ pack s, alt_ $ pack a]
 
 -------------------
 
@@ -43,7 +43,12 @@ convertBlock (Paragraph t) = p_ $ convertText t
 convertBlock (BlockQuote bs) = blockquote_ $ groupElements $ map convertBlock bs
 convertBlock (CodeBlock info text) = pre_ $ code_ [class_ $ pack info] $ toHtml text
 convertBlock ThematicBreak = hr_
-convertBlock (UnorderedList bs) = ul_ $ groupElements $ map (li_ . convertBlock) bs
+convertBlock (UnorderedList bs) = ul_ $ convertListItems bs
+
+convertListItems :: [Block] -> Html ()
+convertListItems [] = return mempty
+convertListItems ((Paragraph text):xs) = li_ (convertText text) <> convertListItems xs
+convertListItems (x:xs) = li_ (convertBlock x) <> convertListItems xs
 
 convertText :: Text -> Html ()
 convertText xs = groupElements $ map convertInline xs
