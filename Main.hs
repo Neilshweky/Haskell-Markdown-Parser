@@ -60,7 +60,7 @@ runParser :: Parser a -> String -> Either ParseError a
 runParser p s = parse p "" s
 
 sorroundP :: Parser start -> Parser end -> Parser Text
-sorroundP start end = start *> someTill inlineP (try end)
+sorroundP start end = start *> (mergeInlines <$> someTill inlineP (try end))
 
 parseSurrounded :: String -> String -> Parser Text
 parseSurrounded start end = sorroundP (string start) (string end)
@@ -82,13 +82,21 @@ codeP = Code
     f x = if x=='\n' then ' ' else x
 
 rsvdChars :: String
-rsvdChars = "*_`)[]<!"
+rsvdChars = "*_`)[]<!#\n"
 
 reserved :: Char -> Bool
 reserved c = c `elem` rsvdChars
 
+litP :: Parser Char
+litP = do 
+  _ <- notFollowedBy (endOfLine *> wsp *> endOfLine)
+  x <- satisfy (not . reserved)
+  -- when (x == '\n') (do { _ <- wsp; return () })
+  return x
+
+
 literalP :: Parser Inline
-literalP = Literal <$> some (notFollowedBy (string "\n\n") >> satisfy (not . reserved))
+literalP = Literal <$> some litP
 
 -- escapedP :: Parser Inline
 -- escapedP = char '\\' *> (Literal <$> ((:[]) <$> anyChar))
@@ -144,9 +152,9 @@ autoLinkP = (\s -> Link [Literal s] s Nothing) <$> p
                             ++ "0123456789-._~:/?#[]@!$&'()*+,;=")
 
 inlineP :: Parser Inline 
-inlineP = (try codeP) <|> (try imageP) <|> (try autoLinkP) <|> (try linkP) 
-          <|> (try boldP) <|> (try italicsP) <|> (try literalP) 
-          <|> Literal . (:[]) <$> (oneOf rsvdChars)
+inlineP = notFollowedBy (endOfLine *> endOfLine) *> ((try codeP) <|> (try imageP) <|> (try autoLinkP) <|> (try linkP) 
+          <|> (try boldP) <|> (try italicsP) <|> (try literalP)
+          <|> Literal . (:[]) <$> (try (endOfLine <* wsp <* notFollowedBy interruptsP) <|> (try (endOfLine <* wsp)) <|> (oneOf rsvdChars)))
 
 textP :: Parser Text
 textP = mergeInlines <$> some inlineP
@@ -252,14 +260,14 @@ interruptsP = (try thematicBreakP) <|> (try headingP) <|> (try codeBlockP)
 
 lineP :: Parser Text
 lineP = do 
-  _ <- notFollowedBy endOfLine
-  _ <- notFollowedBy interruptsP
-  _ <- wsp
-  text <- (try (someTill inlineP (char '\n'))) <|> textP 
+  -- _ <- notFollowedBy endOfLine
+  -- _ <- notFollowedBy interruptsP
+  -- _ <- wsp
+  text <- textP 
   return text
 
 paragraphP :: Parser Block
-paragraphP = Paragraph <$> join <$> some lineP
+paragraphP = Paragraph . mergeInlines <$> (try (someTill inlineP (try (endOfLine *> endOfLine) <|> endOfLine <* wsp <* lookAhead interruptsP)) <|> some inlineP)
 
 tbP :: Char -> Parser Block 
 tbP c = do

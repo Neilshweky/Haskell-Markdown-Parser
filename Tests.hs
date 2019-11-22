@@ -46,7 +46,7 @@ tCodeDouble = "Code Double" ~: TestList [
 tLiteralTest :: Test
 tLiteralTest = "Literal test" ~: TestList [
         runParser literalP "hello" ~?= Right (Literal "hello")
-    ,   runParser literalP "line1\nline2" ~?= Right (Literal "line1\nline2")
+    ,   runParser textP "line1\nline2" ~?= Right ([Literal "line1\nline2"])
     ,   runParser literalP "line1\n\nline2" ~?= Right (Literal "line1")
     ]
 
@@ -343,7 +343,7 @@ tICBMultipleLBWithSpace = "indented code block multiple line breaks with space t
 
 tPagraphBeforeICB :: Test 
 tPagraphBeforeICB = "paragraph before icb test" ~: 
-    runParser documentP "a simple\n    not indented code block" ~?= Right [Paragraph [Literal "a simple\n    not indented code block"]]
+    runParser documentP "a simple\n    not indented code block" ~?= Right [Paragraph [Literal "a simple\nnot indented code block"]]
 
 tPagraphBeforeICB2 :: Test 
 tPagraphBeforeICB2 = "paragraph before icb 2 lb test" ~: 
@@ -424,7 +424,7 @@ tPar = "paragraph test" ~:
 
 tParBadHeading :: Test 
 tParBadHeading = "paragraph bad heading test" ~: 
-    runParser documentP "hello, world\n ######## hello" ~?= Right ([Paragraph [Literal "hello, world", Literal "######## hello"]])
+    runParser documentP "hello, world\n ######## hello" ~?= Right ([Paragraph [Literal "hello, world\n######## hello"]])
 
 tParIntCodeBlock :: Test 
 tParIntCodeBlock = "paragraph bad heading test" ~: 
