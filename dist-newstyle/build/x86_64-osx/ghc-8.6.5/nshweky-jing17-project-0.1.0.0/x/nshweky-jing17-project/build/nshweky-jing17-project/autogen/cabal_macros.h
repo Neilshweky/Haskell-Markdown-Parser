@@ -11,6 +11,17 @@
   (major1) == 0 && (major2) == 1 && (minor) <= 0)
 #endif /* MIN_VERSION_nshweky_jing17_project */
 
+/* package HUnit-1.6.0.0 */
+#ifndef VERSION_HUnit
+#define VERSION_HUnit "1.6.0.0"
+#endif /* VERSION_HUnit */
+#ifndef MIN_VERSION_HUnit
+#define MIN_VERSION_HUnit(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  6 || \
+  (major1) == 1 && (major2) == 6 && (minor) <= 0)
+#endif /* MIN_VERSION_HUnit */
+
 /* package base-4.12.0.0 */
 #ifndef VERSION_base
 #define VERSION_base "4.12.0.0"
@@ -22,6 +33,17 @@
   (major1) == 4 && (major2) == 12 && (minor) <= 0)
 #endif /* MIN_VERSION_base */
 
+/* package containers-0.6.0.1 */
+#ifndef VERSION_containers
+#define VERSION_containers "0.6.0.1"
+#endif /* VERSION_containers */
+#ifndef MIN_VERSION_containers
+#define MIN_VERSION_containers(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  6 || \
+  (major1) == 0 && (major2) == 6 && (minor) <= 0)
+#endif /* MIN_VERSION_containers */
+
 /* package lucid-2.9.12 */
 #ifndef VERSION_lucid
 #define VERSION_lucid "2.9.12"
@@ -32,6 +54,17 @@
   (major1) == 2 && (major2) <  9 || \
   (major1) == 2 && (major2) == 9 && (minor) <= 12)
 #endif /* MIN_VERSION_lucid */
+
+/* package parsec-3.1.13.0 */
+#ifndef VERSION_parsec
+#define VERSION_parsec "3.1.13.0"
+#endif /* VERSION_parsec */
+#ifndef MIN_VERSION_parsec
+#define MIN_VERSION_parsec(major1,major2,minor) (\
+  (major1) <  3 || \
+  (major1) == 3 && (major2) <  1 || \
+  (major1) == 3 && (major2) == 1 && (minor) <= 13)
+#endif /* MIN_VERSION_parsec */
 
 /* tool gcc-4.2.1 */
 #ifndef TOOL_VERSION_gcc

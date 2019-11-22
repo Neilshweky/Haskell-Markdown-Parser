@@ -5,7 +5,9 @@ import Text.ParserCombinators.Parsec hiding (runParser)
 import Control.Applicative hiding ((<|>), many, optional)
 import Control.Monad (guard, when, join,liftM2)
 import Data.List (reverse)
-import Data.Char (isSpace)
+import Data.Char (isSpace, isAlpha, isAlphaNum)
+import Data.Set (Set)
+import qualified Data.Set as Set (fromList, member)
 -- list of top level stuff
 type Document = [Block]
 
@@ -38,7 +40,9 @@ data Inline
   | Bold Text
   | Italics Text
   | Strong Text
-  | Code Text
+  | Code String
+  | Link Text String (Maybe String)
+  | Image String String (Maybe String)
   deriving (Eq, Show)
 
 --TODO fix code spans
@@ -55,7 +59,6 @@ someTillNonCommittal p end = scan
 runParser :: Parser a -> String -> Either ParseError a
 runParser p s = parse p "" s
 
-
 sorroundP :: Parser start -> Parser end -> Parser Text
 sorroundP start end = start *> someTill inlineP (try end)
 
@@ -70,22 +73,95 @@ italicsP = Italics <$> ((parseSurrounded "*" "*") <|> (parseSurrounded "_" "_"))
 
 -- strip whitespace?
 codeP :: Parser Inline
-codeP = Code <$> ((try (parseSurrounded "``" "``")) <|> (parseSurrounded "`" "`"))
+codeP = Code 
+        <$> (try (string "``" *> p (string "``"))
+        <|> (char '`' *> p (char '`')))
+  where
+    p :: Parser a -> Parser String
+    p = manyTill (notFollowedBy (string "\n\n") >> f <$> anyChar)
+    f x = if x=='\n' then ' ' else x
+
+rsvdChars :: String
+rsvdChars = "*_`)[]<!"
 
 reserved :: Char -> Bool
-reserved c = c `elem` ['*', '_', '`','\n']
+reserved c = c `elem` rsvdChars
 
 literalP :: Parser Inline
-literalP = Literal <$> some (satisfy (not . reserved))
+literalP = Literal <$> some (notFollowedBy (string "\n\n") >> satisfy (not . reserved))
 
 -- escapedP :: Parser Inline
 -- escapedP = char '\\' *> (Literal <$> ((:[]) <$> anyChar))
 
+
+linkDestTitleP :: Parser (String, Maybe String)
+linkDestTitleP = (char '(' *> many (char ' ') *> p <* many (char ' ') <* (char ')'))
+  where              
+    p = (,) <$> destLinkP <*> titleP
+    destLinkP :: Parser String
+    destLinkP = try (char '<' *> manyTill (satisfy (/= '\n')) (char '>')) 
+                <|> many (satisfy (\c -> c /= ' ' && c /= ')' && c /= '\n'))
+    titleP :: Parser (Maybe String)
+    titleP = try (Just <$> (some (char ' ') *> wrappedTitleP)) <|> const Nothing <$> (many (char ' ') *> string "")
+    wrappedTitleP :: Parser String
+    wrappedTitleP = choice [
+      char '"' *> manyTill anyChar  (char '"'),
+      char '\'' *> manyTill anyChar  (char '\''),
+      char '(' *> manyTill anyChar  (char ')')
+      ]
+
+linkP :: Parser Inline
+linkP = (\text (link, title) -> Link text link title) 
+                <$> (char '[' *> (mergeInlines <$> manyTill inlineP' (char ']')))
+                <*> linkDestTitleP
+  where
+    inlineP' :: Parser Inline
+    inlineP' = try $ do
+                  notFollowedBy autoLinkP
+                  notFollowedBy linkP
+                  inlineP
+
+imageP :: Parser Inline
+imageP = (\alt (link, title) -> Image alt link title)
+         <$> (string "![" *>  manyTill anyChar (char ']'))
+         <*> linkDestTitleP
+
+autoLinkP :: Parser Inline
+autoLinkP = (\s -> Link [Literal s] s Nothing) <$> p
+  where
+    p :: Parser String
+    p = char '<' *> ((++) <$> prefixP <*> (notFollowedBy codeP >> many urlChar <* (char '>')))
+    prefixP :: Parser String
+    prefixP = (\a b c -> a:b++[c])
+                <$> satisfy isAlpha
+                <*> some (satisfy (\c -> isAlphaNum c || c == '.' || c == '+' || c == '-'))
+                <*> char ':'
+    urlChar :: Parser Char
+    urlChar = satisfy (flip Set.member whiteList)
+    whiteList :: Set Char
+    whiteList =  Set.fromList ("ABCDEFGHIJKLMNOPQRSTUVWXYZ" 
+                            ++ "abcdefghijklmnopqrstuvwxyz"
+                            ++ "0123456789-._~:/?#[]@!$&'()*+,;=")
+
 inlineP :: Parser Inline 
-inlineP = (try boldP) <|> (try italicsP) <|> (try codeP) <|> (try literalP) <|> Literal <$> (:[]) <$> anyChar
+inlineP = (try codeP) <|> (try imageP) <|> (try autoLinkP) <|> (try linkP) 
+          <|> (try boldP) <|> (try italicsP) <|> (try literalP) 
+          <|> Literal . (:[]) <$> (oneOf rsvdChars)
 
 textP :: Parser Text
-textP = some inlineP  
+textP = mergeInlines <$> some inlineP
+
+mergeInlines :: Text -> Text
+mergeInlines [] = []
+mergeInlines [x] = [x]
+mergeInlines (x1:x2:xs) = case (x1, x2) of
+  (Literal a, Literal b) -> mergeInlines $ (Literal (a ++ b)):xs
+  (Bold a, Bold b) -> mergeInlines $ (Bold (mergeInlines $ a ++ b)):xs
+  (Italics a, Italics b) -> mergeInlines $ (Italics (mergeInlines $ a ++ b)):xs
+  (Strong a, Strong b) -> mergeInlines $ (Strong (mergeInlines $ a ++ b)):xs
+  (Code a, Code b) -> mergeInlines $ (Code (a++b)):xs
+  _ -> x1:(mergeInlines (x2:xs))
+
 
 --Done inline parsers
 
@@ -125,7 +201,7 @@ headingP =
 
 
 plainTextP :: Char -> Parser PlainText
-plainTextP c = many (satisfy (not . (==c)))                   
+plainTextP c = many (satisfy (/=c))                   
 
 codeBlockP :: Parser Block
 codeBlockP = codeBlockSurround '`' <|> codeBlockSurround '~'
