@@ -87,16 +87,8 @@ rsvdChars = "*_`)[]<!#\n"
 reserved :: Char -> Bool
 reserved c = c `elem` rsvdChars
 
-litP :: Parser Char
-litP = do 
-  _ <- notFollowedBy (endOfLine *> wsp *> endOfLine)
-  x <- satisfy (not . reserved)
-  -- when (x == '\n') (do { _ <- wsp; return () })
-  return x
-
-
 literalP :: Parser Inline
-literalP = Literal <$> some litP
+literalP = Literal <$> some (notFollowedBy (endOfLine *> wsp *> endOfLine) *> satisfy (not . reserved))
 
 -- escapedP :: Parser Inline
 -- escapedP = char '\\' *> (Literal <$> ((:[]) <$> anyChar))
@@ -154,7 +146,7 @@ autoLinkP = (\s -> Link [Literal s] s Nothing) <$> p
 inlineP :: Parser Inline 
 inlineP = notFollowedBy (endOfLine *> endOfLine) *> ((try codeP) <|> (try imageP) <|> (try autoLinkP) <|> (try linkP) 
           <|> (try boldP) <|> (try italicsP) <|> (try literalP)
-          <|> Literal . (:[]) <$> (try (endOfLine <* wsp <* notFollowedBy interruptsP) <|> (try (endOfLine <* wsp)) <|> (oneOf rsvdChars)))
+          <|> Literal . (:[]) <$> ((try (endOfLine <* wsp)) <|> (oneOf rsvdChars)))
 
 textP :: Parser Text
 textP = mergeInlines <$> some inlineP
