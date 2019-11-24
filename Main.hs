@@ -62,17 +62,17 @@ someTillNonCommittal p end = scan
 runParser :: Parser a -> String -> Either ParseError a
 runParser p s = parse p "" s
 
-sorroundP :: Parser start -> Parser end -> Parser Text
-sorroundP start end = start *> (mergeInlines <$> someTill inlineP (try end))
+sorroundP :: Bool -> Parser start -> Parser end -> Parser Text
+sorroundP isPar start end = start *> (mergeInlines <$> someTill (inlineP isPar) (try end))
 
-parseSurrounded :: String -> String -> Parser Text
-parseSurrounded start end = sorroundP (string start) (string end)
+parseSurrounded :: Bool -> String -> String -> Parser Text
+parseSurrounded isPar start end = sorroundP isPar (string start) (string end)
 
-boldP :: Parser Inline
-boldP = Bold <$> ((parseSurrounded "**" "**") <|> try (parseSurrounded "__" "__")) 
+boldP :: Bool -> Parser Inline
+boldP isPar = Bold <$> ((parseSurrounded isPar "**" "**") <|> try (parseSurrounded isPar "__" "__"))
 
-italicsP :: Parser Inline
-italicsP = Italics <$> ((parseSurrounded "*" "*") <|> (parseSurrounded "_" "_"))
+italicsP :: Bool -> Parser Inline
+italicsP isPar = Italics <$> ((parseSurrounded isPar "*" "*") <|> (parseSurrounded isPar "_" "_"))
 
 -- strip whitespace?
 codeP :: Parser Inline
@@ -105,7 +105,7 @@ linkDestTitleP = (char '(' *> many (char ' ') *> p <* many (char ' ') <* (char '
     destLinkP = try (char '<' *> manyTill (satisfy (/= '\n')) (char '>')) 
                 <|> many (satisfy (\c -> c /= ' ' && c /= ')' && c /= '\n'))
     titleP :: Parser (Maybe String)
-    titleP = try (Just <$> (some (char ' ') *> wrappedTitleP)) <|> const Nothing <$> (many (char ' ') *> string "")
+    titleP = try (Just <$> (some (char ' ') *> try wrappedTitleP)) <|> const Nothing <$> (many (char ' ') *> string "")
     wrappedTitleP :: Parser String
     wrappedTitleP = choice [
       char '"' *> manyTill anyChar  (char '"'),
@@ -113,16 +113,16 @@ linkDestTitleP = (char '(' *> many (char ' ') *> p <* many (char ' ') <* (char '
       char '(' *> manyTill anyChar  (char ')')
       ]
 
-linkP :: Parser Inline
-linkP = (\text (link, title) -> Link text link title) 
+linkP :: Bool -> Parser Inline
+linkP isPar = (\text (link, title) -> Link text link title)
                 <$> (char '[' *> (mergeInlines <$> manyTill inlineP' (char ']')))
                 <*> linkDestTitleP
   where
     inlineP' :: Parser Inline
     inlineP' = try $ do
                   notFollowedBy autoLinkP
-                  notFollowedBy linkP
-                  inlineP
+                  notFollowedBy $ linkP isPar
+                  inlineP isPar
 
 imageP :: Parser Inline
 imageP = (\alt (link, title) -> Image alt link title)
@@ -146,20 +146,25 @@ autoLinkP = (\s -> Link [Literal s] s Nothing) <$> p
                             ++ "abcdefghijklmnopqrstuvwxyz"
                             ++ "0123456789-._~:/?#[]@!$&'()*+,;=")
 
-hardBreakP :: Parser Inline
-hardBreakP = do
-  try $ string "\\" <|> count 2 (char ' ') <* wsp
-  try $ lookAhead $ endOfLine <* wsp <* satisfy (/= '\n')
+hardBreakP :: Bool -> Parser Inline
+hardBreakP isPar = do
+  guard isPar
+  try $ string "\\" <|> count 2 (char ' ') <* many (char ' ')
+  try $ lookAhead $ char '\n' <* many (char ' ') <* satisfy (/= '\n')
   return HardBreak
 
-inlineP :: Parser Inline 
-inlineP = notFollowedBy (endOfLine *> wsp *> endOfLine) *> (
-          (try codeP) <|> (try imageP) <|> (try autoLinkP) <|> (try linkP) 
-          <|> (try boldP) <|> (try italicsP) <|> (try hardBreakP) <|> (try literalP)
-          <|> Literal . (:[]) <$> ((try (endOfLine <* wsp)) <|> (oneOf rsvdChars)))
+inlineP :: Bool -> Parser Inline
+inlineP isPar = notFollowedBy (endOfLine *> wsp *> endOfLine) *> choice [
+  try codeP, try imageP, try autoLinkP, try $ linkP isPar,
+  try $ boldP isPar, try $ italicsP isPar, try $ hardBreakP isPar, try literalP
+  <|> Literal . (:[]) <$> ((try (endOfLine <* wsp)) <|> (oneOf rsvdChars))
+  ]
+
+textPBase :: Bool -> Parser Text
+textPBase isPar = mergeInlines <$> some (inlineP isPar)
 
 textP :: Parser Text
-textP = mergeInlines <$> some inlineP
+textP = textPBase False
 
 mergeInlines :: Text -> Text
 mergeInlines [] = []
@@ -206,7 +211,8 @@ headingP =
     guard (length sps < 4)
     l <- some (char '#') 
     guard ((length l) < 7 && (length l) > 0)
-    t <- some (char ' ') *> (try (someTill inlineP endOfLine) <|> textP)
+    tRaw <- some (char ' ') *> (try (someTill (inlineP False)  endOfLine) <|> textP)
+    let t = mergeInlines tRaw
     return (Heading (headingLevel (length l)) (if length t == 0 then t else (dropSpaces t)))
 
 
@@ -268,7 +274,10 @@ lineP = do
   return text
 
 paragraphP :: Parser Block
-paragraphP = Paragraph . mergeInlines <$> (try (someTill inlineP (try (endOfLine *> endOfLine) <|> endOfLine <* wsp <* lookAhead interruptsP)) <|> some inlineP)
+paragraphP = Paragraph . mergeInlines <$>
+  (try (someTill inlineP' (try (endOfLine *> endOfLine) <|> endOfLine <* wsp <* lookAhead interruptsP))
+  <|> some inlineP')
+  where inlineP' = inlineP True
 
 tbP :: Char -> Parser Block 
 tbP c = do

@@ -18,17 +18,19 @@ tInlines = TestList [  tBoldTest, tItalicsTest, tCodeTest, tCodeDouble, tLiteral
 
 tBoldTest :: Test
 tBoldTest = "bold test" ~: TestList [ 
-        runParser boldP "**hello**" ~?= Right (Bold [Literal "hello"])
-    ,   runParser boldP "**hel\nlo**" ~?= Right (Bold [Literal "hel\nlo"])
-    ,   isLeft (runParser boldP "**hel\n\nlo**") ~?= True
+        parse "**hello**" ~?= Right (Bold [Literal "hello"])
+    ,   parse "**hel\nlo**" ~?= Right (Bold [Literal "hel\nlo"])
+    ,   isLeft (parse "**hel\n\nlo**") ~?= True
     ]
+    where parse = runParser $ boldP False
 
 tItalicsTest :: Test
 tItalicsTest = "italics test" ~: TestList [
-        runParser italicsP "*hello*" ~?= Right (Italics [Literal "hello"])
-    ,   runParser italicsP "*hel\nlo*" ~?= Right (Italics [Literal "hel\nlo"])
-    ,   isLeft (runParser italicsP "*hel\n\nlo*") ~?= True
+        parse "*hello*" ~?= Right (Italics [Literal "hello"])
+    ,   parse "*hel\nlo*" ~?= Right (Italics [Literal "hel\nlo"])
+    ,   isLeft (parse "*hel\n\nlo*") ~?= True
     ]
+    where parse = runParser $ italicsP False
     
 tCodeTest :: Test
 tCodeTest = "Code test" ~:  TestList [
@@ -63,7 +65,7 @@ tHardBreakTest = "HardBreak test" ~: TestList [
     ,   isLeft (parse "\\\n\n") ~?= True
     ,   isLeft (parse "\\  \na") ~?= True
     ]   
-    where parse = runParser hardBreakP
+    where parse = runParser $ hardBreakP True
 
 tLinkTest :: Test
 tLinkTest = "Link test" ~: TestList [
@@ -84,7 +86,7 @@ tLinkTest = "Link test" ~: TestList [
     ,   parse "[bar](<url> (tit\nle))" ~?= Right (Link [Literal "bar"] "url" (Just "tit\nle"))
     ,   isLeft (parse "[bar](<ur\nl> (title))") ~?= True
     ] 
-    where parse = runParser linkP
+    where parse = runParser $ linkP False
 
 tAutoLinkTest :: Test
 tAutoLinkTest = "AutoLink Test" ~: TestList [
@@ -193,8 +195,9 @@ tTextHardBreak = "TextHardBreak" ~: TestList [
     ,   parse "[link  \nbreak](href)" ~?= Right [Link [Literal "link", HardBreak, Literal "\nbreak"] "href" Nothing]
     ,   parse "a\\\n\\\nb" ~?= Right [Literal "a", HardBreak, Literal "\n", HardBreak, Literal "\nb"]
     ,   parse "a  \n  \nb" ~?= Right [Literal "a  "] -- not a line break
+    ,   runParser (textPBase False) "a\\\nb" ~?= Right [Literal "a\\\nb"]
     ]
-    where parse = runParser textP
+    where parse = runParser $ textPBase True
 
 -- BLOCK-Level tests
 tHeading :: Test
@@ -202,7 +205,8 @@ tHeading = TestList [  tHeadingH1, tHeadingH3, tHeadingH7, tHeadingNoSpace,
                         tHeadingInline, tHeadingSpaceBefore, tHeadingIndentSpace,
                         tHeadingIndentSpace2, tHeadingIndentSpace4, tHeadingEscape,
                         tHeadingTrailingSpace, tHeadingTrailingSpaceBold, tHeadingClosing,
-                        tHeadingTrailingClosing, tHeadingTrailingClosingLetter, tHeadingEmpty ] 
+                        tHeadingTrailingClosing, tHeadingTrailingClosingLetter, tHeadingEmpty,
+                        tHeadingHardBreak ]
 
 
 tHeadingH1 :: Test 
@@ -268,6 +272,14 @@ tHeadingTrailingClosingLetter = "heading trailing closing letter test" ~:
 tHeadingEmpty :: Test 
 tHeadingEmpty = "heading empty test" ~: 
     runParser blockP "## ###  " ~?= Right (Heading H2 [])
+
+tHeadingHardBreak :: Test
+tHeadingHardBreak = "heading hardbreak test " ~: TestList [
+        runParser blockP "## heading\\\npara" ~?=
+            Right (Heading H2 [Literal "heading\\"])
+    ,   runParser blockP "## heading    \npara" ~?=
+            Right (Heading H2 [Literal "heading"])
+    ]
 
 -- CODE BLOCK tests
 
@@ -436,7 +448,7 @@ tTBMixSyms = "thematic break MixSyms test" ~:
 
 -- Paragraph tests
 tParagraph :: Test
-tParagraph = TestList [ tPar, tParBadHeading, tParIntCodeBlock ]
+tParagraph = TestList [ tPar, tParBadHeading, tParIntCodeBlock, tParHardBreak ]
 
 tPar :: Test 
 tPar = "paragraph test" ~: 
@@ -449,6 +461,13 @@ tParBadHeading = "paragraph bad heading test" ~:
 tParIntCodeBlock :: Test 
 tParIntCodeBlock = "paragraph bad heading test" ~: 
     runParser documentP "hello, world\n ```\n```" ~?= Right ([Paragraph [Literal "hello, world"], CodeBlock "" ""])
+
+tParHardBreak :: Test
+tParHardBreak = "paragraph hardbreak test" ~: TestList [
+        parse "line1\\\nline2" ~?= Right [Paragraph [Literal "line1", HardBreak, Literal "\nline2"]]
+    ,   parse "line1    \nline2" ~?= Right [Paragraph [Literal "line1", HardBreak, Literal "\nline2"]]
+    ]
+    where parse = runParser documentP
 
 -- tDocLeadingWsp :: Test 
 -- tDocLeadingWsp = "indented code block test" ~: 
