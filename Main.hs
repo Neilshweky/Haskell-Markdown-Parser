@@ -27,7 +27,7 @@ data Block
   | CodeBlock Info PlainText
   | ThematicBreak
   | UnorderedList [ListItem]
-  | OrderedList [ListItem]
+  | OrderedList Int [ListItem]
   deriving (Eq, Show)
 
 type ListItem = [Block]
@@ -293,16 +293,25 @@ thematicBreakP = wsp *> (tbP '*' <|> tbP '~' <|> tbP '-')
 
 -- blockQuoteP start here tomorrow!
 
-cLineP :: Parser Block
-cLineP = do
-  _ <- wsp
-  _ <- char '>' *> optional (char ' ')
-  t <- blockP
-  t' <- many (eolWspP)
-  return t
+-- cLineP :: Parser [Block]
+-- cLineP = do
+--   sps <- (wsp <* (oneOf ">"))
+--   block <- blockP
+--   _ <- many (try (wsp *> endOfLine))
+--   blocks <- many (indentedBlockQP (length sps + length sps2 + 1)) 
+--   return (block:blocks)
+  
 
-blockQuoteP :: Parser Block
-blockQuoteP = BlockQuote <$> some cLineP
+-- indentedBlockQP :: Int -> Parser Block
+-- indentedBlockQP i = do
+--   _ <- lookAhead (wsp *> noneOf "-*+")
+--   sps <- try (count i (char ' '))
+--   block <- try blockP
+--   _ <- many (try (wsp *> endOfLine))
+--   return block
+
+-- blockQuoteP :: Parser Block
+-- blockQuoteP = BlockQuote <$> some cLineP
 
 -- -- no p in list item if no \n
 uListItemP :: Parser [Block]
@@ -323,19 +332,46 @@ indentedBlockP i = do
   _ <- many (try (wsp *> endOfLine))
   return block
 
+--
+oListItemP :: Parser [Block]
+oListItemP = do
+  sps <- lookAhead (wsp <* beginningIntP)
+  num <- lookAhead beginningIntP
+  sps2 <- try (wsp *> beginningIntP *> some (char ' '))
+  block <- blockP
+  _ <- many (try (wsp *> endOfLine))
+  blocks <- many (orderedIndentedBlockP (length sps + length sps2 + length num + 1)) 
+  return (block:blocks)
+  
+
+orderedIndentedBlockP :: Int -> Parser Block
+orderedIndentedBlockP i = do
+  _ <- lookAhead (wsp *> notFollowedBy beginningIntP)
+  sps <- try (count i (char ' '))
+  block <- try blockP
+  _ <- many (try (wsp *> endOfLine))
+  return block
+--
+
 bulletListP :: Parser Block
 bulletListP = do
   blocks <- some (try uListItemP) -- [Block]
   return (UnorderedList blocks)
 
+beginningIntP :: Parser String
+beginningIntP = do
+  start <- ((many digit) <* char '.')
+  guard (length start < 10)
+  return start
 
--- orderedListP :: Parser Block 
--- orderedListP = do
---   blocks <- some (try oListItemP) -- [Block]
---   return (OrderedList blocks)
+orderedListP :: Parser Block 
+orderedListP = do
+  start <- lookAhead beginningIntP
+  blocks <- some (try oListItemP) -- [Block]
+  return (OrderedList ((read :: String -> Int) start) blocks)
 
 listP :: Parser Block
-listP = bulletListP -- <|> orderedListP
+listP = bulletListP <|> orderedListP
 
 blockP :: Parser Block
 blockP = ((try indentedCodeBlockP) <|> (try thematicBreakP) <|> (try listP) <|> (try headingP) 

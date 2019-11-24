@@ -474,10 +474,10 @@ tParHardBreak = "paragraph hardbreak test" ~: TestList [
 --     runParser documentP "\n\n\n   \n       \n\n    \n    a simple\n      indented code block" ~?= Right [(CodeBlock "" "a simple\n  indented code block")]
  
 -- LIST TESTS 
-tUnorderedList :: Test
-tUnorderedList = TestList [ tUL, tULHeading, tUL3Spaces, tULICB, tULICB2, tULItem2Blocks,
+tList :: Test
+tList = TestList [ tUL, tULHeading, tUL3Spaces, tULICB, tULICB2, tULItem2Blocks,
                             tULItem2BlocksNewline, tULItem2BlocksNewlineSpaces, tULFewSpaces,
-                            tULStar, tULPlus ]
+                            tULStar, tULPlus, tOL, tOLBigStart, tOLTooBigStart, tOLItem2Blocks ]
     
 tUL :: Test 
 tUL = "UL test" ~: 
@@ -512,7 +512,7 @@ tULItem2BlocksNewline = "ULItem2BlocksNewline test" ~:
 
 tULItem2BlocksNewlineSpaces :: Test 
 tULItem2BlocksNewlineSpaces = "ULItem2BlocksNewlineSpaces test" ~: 
-    runParser listP "- ## hello\n   \n  ## there \n- world" ~?= Right (UnorderedList [[Heading H2 [Literal "hello"],Heading H2 [Literal "there"]],[Paragraph [Literal "world"]]])
+    runParser listP "- ## hello    \n   \n  ## there \n- world" ~?= Right (UnorderedList [[Heading H2 [Literal "hello"],Heading H2 [Literal "there"]],[Paragraph [Literal "world"]]])
 
 
 tULFewSpaces :: Test 
@@ -530,16 +530,33 @@ tULPlus = "ULPlus test" ~:
     runParser listP "+ one" ~?= Right (UnorderedList [[Paragraph [Literal "one"]]])
 
 
+tULCodeBlock :: Test 
+tULCodeBlock = "ULCodeBlock test" ~: 
+    runParser listP "+ one" ~?= Right (UnorderedList [[Paragraph [Literal "one"]]])
 
--- tULCodeBlock :: Test 
--- tULCodeBlock = "ULCodeBlock test" ~: 
---     runParser listP "+ one" ~?= Right (UnorderedList [[Paragraph [Literal "one"]]])
+tOL :: Test 
+tOL = "OL test" ~: 
+    runParser listP "1. hello\n2. world" ~?= Right (OrderedList 1 [[Paragraph [Literal "hello"]],[Paragraph [Literal "world"]]])
+
+tOLBigStart :: Test 
+tOLBigStart = "OLBigStart test" ~: 
+    runParser listP "123456789. hello\n2. world" ~?= Right (OrderedList 123456789 [[Paragraph [Literal "hello"]],[Paragraph [Literal "world"]]])
+
+tOLTooBigStart :: Test 
+tOLTooBigStart = "OLTooBigStart test" ~: 
+    runParser documentP "1234567890. hello" ~?= Right ([Paragraph [Literal "1234567890. hello"]])
+
+--
+tOLItem2Blocks :: Test 
+tOLItem2Blocks = "OLItem2Blocks test" ~: 
+    runParser listP "2. ## hello\n     ## there \n4. world" ~?= Right (OrderedList 2 [[Heading H2 [Literal "hello"],Heading H2 [Literal "there"]],[Paragraph [Literal "world"]]])
+
 
 
 main :: IO ()
 main = do
     _ <- runTestTT (TestList [ tInlines, tHeading, tCodeBlock, 
                                 tIndentedCode, tThematicBreaks, tParagraph,
-                                tUnorderedList
+                                tList
                                  ])
     return ()
