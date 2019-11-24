@@ -26,9 +26,11 @@ data Block
   | BlockQuote [Block]
   | CodeBlock Info PlainText
   | ThematicBreak
-  | UnorderedList [Block]
+  | UnorderedList [ListItem]
+  | OrderedList [ListItem]
   deriving (Eq, Show)
 
+type ListItem = [Block]
 type Info = String
 type PlainText = String
 -- A combination of strings and inlines
@@ -146,8 +148,8 @@ autoLinkP = (\s -> Link [Literal s] s Nothing) <$> p
 
 hardBreakP :: Parser Inline
 hardBreakP = do
-  try $ string "\\" <|> count 2 (char ' ') <* many (char ' ')
-  try $ lookAhead $ char '\n' <* many (char ' ') <* satisfy (/= '\n')
+  try $ string "\\" <|> count 2 (char ' ') <* wsp
+  try $ lookAhead $ endOfLine <* wsp <* satisfy (/= '\n')
   return HardBreak
 
 inlineP :: Parser Inline 
@@ -227,8 +229,7 @@ dropJustWsp s = reverse (dropS (reverse s)) where
 codeBlockSurround :: Char -> Parser Block
 codeBlockSurround c = do
   sps <- wsp
-  guard (length sps <= 3)
-  l <- string [c,c] *> many1 (char c) <* wsp
+  l <- string [c,c] *> some (char c) <* wsp
   i <- many (alphaNum <|> char ' ') <* endOfLine
   text <- plainTextP c 
   _ <- count (2 + length l) (char c) <* many (char c)
@@ -256,7 +257,7 @@ reservedBlock :: Char -> Bool
 reservedBlock c = c `elem` ['#', '>', '-', '~', '*']
 
 interruptsP :: Parser Block
-interruptsP = (try thematicBreakP) <|> (try headingP) <|> (try codeBlockP) 
+interruptsP = (try thematicBreakP) <|> (try headingP) <|> (try codeBlockP) <|> (try listP)
 
 lineP :: Parser Text
 lineP = do 
@@ -295,27 +296,41 @@ blockQuoteP :: Parser Block
 blockQuoteP = BlockQuote <$> some cLineP
 
 -- -- no p in list item if no \n
--- uListItem :: Int -> Parser Block 
--- uListItem i = do
---   _ <- try (wsp *> (oneOf "-*+") *> some (char ' '))
---   block <- blockP
---   _ <- many endOfLine
---   blocks <- many (endOfLine *> (count i (char ' ') *> blockP))
---   return (liftM2 (:) block blocks)
-
--- bulletListP :: Parser Block
--- bulletListP = do
---   sps <- lookAhead (wsp <* (oneOf "-*+"))
---   sps2 <- lookAhead (wsp *> (oneOf "-*+") *> some (char ' '))
---   blocks <- some (uListItem (length sps + length sps2 + 1))
---   return (UnorderedList blocks)
+uListItemP :: Parser [Block]
+uListItemP = do
+  sps <- lookAhead (wsp <* (oneOf "-*+"))
+  sps2 <- try (wsp *> (oneOf "-*+") *> some (char ' '))
+  block <- blockP
+  _ <- many (try (wsp *> endOfLine))
+  blocks <- many (indentedBlockP (length sps + length sps2 + 1)) 
+  return (block:blocks)
   
 
--- listP :: Parser Block
--- listP = bulletListP -- <|> orderedListP
+indentedBlockP :: Int -> Parser Block
+indentedBlockP i = do
+  _ <- lookAhead (wsp *> noneOf "-*+")
+  sps <- try (count i (char ' '))
+  block <- try blockP
+  _ <- many (try (wsp *> endOfLine))
+  return block
+
+bulletListP :: Parser Block
+bulletListP = do
+  blocks <- some (try uListItemP) -- [Block]
+  return (UnorderedList blocks)
+
+
+-- orderedListP :: Parser Block 
+-- orderedListP = do
+--   blocks <- some (try oListItemP) -- [Block]
+--   return (OrderedList blocks)
+
+listP :: Parser Block
+listP = bulletListP -- <|> orderedListP
 
 blockP :: Parser Block
-blockP = ((try indentedCodeBlockP) <|> (try thematicBreakP) <|> (try headingP) <|> (try codeBlockP) <|> (try paragraphP)) <* optional endOfLine 
+blockP = ((try indentedCodeBlockP) <|> (try thematicBreakP) <|> (try listP) <|> (try headingP) 
+          <|> (try codeBlockP) <|> (try paragraphP)) <* optional endOfLine 
 
 documentP :: Parser Document
 documentP = many blockP
