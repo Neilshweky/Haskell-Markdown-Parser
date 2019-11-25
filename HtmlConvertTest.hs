@@ -122,14 +122,20 @@ tBlock = "test html convert on block elements" ~: TestList [
     tUnorderedList :: Test
     tUnorderedList = TestList [
         render (UnorderedList []) ~?= "<ul></ul>"
-      , render (UnorderedList [Paragraph [Literal "line"]]) ~?= "<ul><li>line</li></ul>"
-      , render (UnorderedList [Paragraph [Literal "line"]
-                              , CodeBlock "" "code line"
-                              , Heading H6 [Literal "heading line"]]) ~?=
+      , render (UnorderedList [[Paragraph [Literal "line"]]]) ~?= "<ul><li>line</li></ul>"
+      , render (UnorderedList [[Paragraph [Literal "line"]]
+                              , [CodeBlock "" "code line"]
+                              , [Heading H6 [Literal "heading line"]]]) ~?=
           "<ul><li>line</li><li><pre><code class>code line</code></pre></li><li><h6>heading line</h6></li></ul>"
-      , render (UnorderedList [UnorderedList [Paragraph [Literal "inner1"]]
-                              , UnorderedList [Paragraph [Literal "inner2"]]]) ~?=
+      , render (UnorderedList [[UnorderedList [[Paragraph [Literal "inner1"]]]]
+                              ,[UnorderedList [[Paragraph [Literal "inner2"]]]]]) ~?=
           "<ul><li><ul><li>inner1</li></ul></li><li><ul><li>inner2</li></ul></li></ul>"
+      , "multiple blocks in one list item in a unordered list" ~:
+        render (UnorderedList [[Paragraph [Literal "para1"], Heading H2 [Literal "heading"], Paragraph [Literal "para2"]]]) ~?=
+          "<ul><li>para1<h2>heading</h2>para2</li></ul>"
+      , "multiple blocks and multiple list items in a unordered list" ~:
+        render (UnorderedList [[Paragraph [Literal "para1"], Heading H2 [Literal "heading"]], [Paragraph [Literal "para2"]]]) ~?=
+          "<ul><li>para1<h2>heading</h2></li><li>para2</li></ul>"
       ]
 
 tDocument :: Test

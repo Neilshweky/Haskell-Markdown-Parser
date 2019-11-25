@@ -45,12 +45,16 @@ convertBlock (Paragraph t) = p_ $ convertText t
 convertBlock (BlockQuote bs) = blockquote_ $ groupElements $ map convertBlock bs
 convertBlock (CodeBlock info text) = pre_ $ code_ [class_ $ pack info] $ toHtml text
 convertBlock ThematicBreak = hr_
--- convertBlock (UnorderedList bs) = ul_ $ convertListItems bs
+convertBlock (UnorderedList lis) = ul_ $ convertListItems lis
+convertBlock (OrderedList start lis) = ol_ [start_ $ pack $ show start] (convertListItems lis)
+ 
+convertListItems :: [ListItem] -> Html ()
+convertListItems ls = groupElements $ map (li_ . convertListItem) ls
 
-convertListItems :: [Block] -> Html ()
-convertListItems [] = return mempty
-convertListItems ((Paragraph text):xs) = li_ (convertText text) <> convertListItems xs
-convertListItems (x:xs) = li_ (convertBlock x) <> convertListItems xs
+convertListItem :: ListItem -> Html ()
+convertListItem [] = return mempty
+convertListItem ((Paragraph text):xs) = (convertText text) <> convertListItem xs
+convertListItem (x:xs) = (convertBlock x) <> convertListItem xs
 
 convertText :: Text -> Html ()
 convertText xs = groupElements $ map convertInline xs
