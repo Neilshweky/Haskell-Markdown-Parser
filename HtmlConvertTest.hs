@@ -44,7 +44,7 @@ tInline = "test html convert on inline elements" ~: TestList [
       ]
 
     tHardBreak :: Test
-    tHardBreak = render HardBreak ~?= "<br/>"
+    tHardBreak = render HardBreak ~?= "<br />"
 
 tText :: Test
 tText = "test html convert on text elements" ~: TestList [
@@ -64,11 +64,11 @@ tText = "test html convert on text elements" ~: TestList [
       , render [Literal "l1", Literal "l2"] ~?= "l1l2"
       , render [Bold [Bold [Literal "boldbold"]]] ~?= "<strong><strong>boldbold</strong></strong>"
       , render [Bold [Italics [Literal "both"]]] ~?= "<strong><em>both</em></strong>"
-      , render [Literal "line1", HardBreak, Bold [Literal "line2\nline3"]] ~?= "line1<br/><strong>line2\nline3</strong>"
+      , render [Literal "line1", HardBreak, Bold [Literal "line2\nline3"]] ~?= "line1<br /><strong>line2\nline3</strong>"
       , render [Link [Image "alt" "src" (Just "img tit"),
                       HardBreak, Bold [Literal "click to jump"]] "href" (Just "link tit")] ~?=
           "<a href=\"href\" title=\"link tit\"><img src=\"src\" title=\"img tit\" alt=\"alt\"/>" ++
-          "<br/><strong>click to jump</strong></a>"
+          "<br /><strong>click to jump</strong></a>"
       ]
 
 tBlock :: Test
@@ -111,40 +111,40 @@ tBlock = "test html convert on block elements" ~: TestList [
     tCodeBlock :: Test
     tCodeBlock = TestList [
         render (CodeBlock "haskell" "putStrLn \"hello haskell\"") ~?= 
-          "<pre><code class=\"haskell\">putStrLn &quot;hello haskell&quot;</code></pre>"
+          "<pre><code class=\"language-haskell\">putStrLn &quot;hello haskell&quot;</code></pre>"
       , render (CodeBlock "" "no info block") ~?=
-          "<pre><code class>no info block</code></pre>"
+        "<pre><code>no info block</code></pre>"
       ]
 
     tThematicBreak :: Test
-    tThematicBreak = render ThematicBreak ~?= "<hr/>" 
+    tThematicBreak = render ThematicBreak ~?= "<hr />" 
 
     tUnorderedList :: Test
     tUnorderedList = TestList [
         render (UnorderedList []) ~?= "<ul></ul>"
-      , render (UnorderedList [[Paragraph [Literal "line"]]]) ~?= "<ul><li>line</li></ul>"
+      , render (UnorderedList [[Paragraph [Literal "line"]]]) ~?= "<ul><li>line\n</li></ul>"
       , render (UnorderedList [[Paragraph [Literal "line"]]
                               , [CodeBlock "" "code line"]
                               , [Heading H6 [Literal "heading line"]]]) ~?=
-          "<ul><li>line</li><li><pre><code class>code line</code></pre></li><li><h6>heading line</h6></li></ul>"
+                                "<ul><li>line\n</li><li><pre><code>code line</code></pre>\n</li><li><h6>heading line</h6>\n</li></ul>"
       , render (UnorderedList [[UnorderedList [[Paragraph [Literal "inner1"]]]]
                               ,[UnorderedList [[Paragraph [Literal "inner2"]]]]]) ~?=
-          "<ul><li><ul><li>inner1</li></ul></li><li><ul><li>inner2</li></ul></li></ul>"
+                                "<ul><li><ul><li>inner1\n</li></ul>\n</li><li><ul><li>inner2\n</li></ul>\n</li></ul>"
       , "multiple blocks in one list item in a unordered list" ~:
         render (UnorderedList [[Paragraph [Literal "para1"], Heading H2 [Literal "heading"], Paragraph [Literal "para2"]]]) ~?=
-          "<ul><li>para1<h2>heading</h2>para2</li></ul>"
+          "<ul><li>para1\n<h2>heading</h2>\npara2\n</li></ul>"
       , "multiple blocks and multiple list items in a unordered list" ~:
         render (UnorderedList [[Paragraph [Literal "para1"], Heading H2 [Literal "heading"]], [Paragraph [Literal "para2"]]]) ~?=
-          "<ul><li>para1<h2>heading</h2></li><li>para2</li></ul>"
+          "<ul><li>para1\n<h2>heading</h2>\n</li><li>para2\n</li></ul>"
       ]
 
 tDocument :: Test
 tDocument = "test html convert on document elements" ~: TestList [
-    render [] ~?= "<!DOCTYPE HTML><html></html>"
-  , render [Heading H1 [Literal "HTML DOC"]] ~?= "<!DOCTYPE HTML><html><h1>HTML DOC</h1></html>"
-  , render [Paragraph [Literal "paragraph"]] ~?= "<!DOCTYPE HTML><html><p>paragraph</p></html>"
+    render [] ~?= "<!DOCTYPE HTML><html></html>\n"
+  , render [Heading H1 [Literal "HTML DOC"]] ~?= "<!DOCTYPE HTML><html><h1>HTML DOC</h1></html>\n"
+  , render [Paragraph [Literal "paragraph"]] ~?= "<!DOCTYPE HTML><html><p>paragraph</p></html>\n"
   , render [Heading H1 [Literal "Article Title"], Paragraph [Literal "Article content."]] ~?=
-          "<!DOCTYPE HTML><html><h1>Article Title</h1><p>Article content.</p></html>"
+          "<!DOCTYPE HTML><html><h1>Article Title</h1><p>Article content.</p></html>\n"
   ] where
     render = renderText . convertDocument
 

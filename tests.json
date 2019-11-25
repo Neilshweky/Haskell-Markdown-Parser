@@ -17,7 +17,7 @@
   },
   {
     "markdown": "    a\ta\n    ὐ\ta\n",
-    "html": "<pre><code>a\ta\nὐ\ta\n</code></pre>\n",
+    "html": "<pre><code class>a\ta\nὐ\ta\n</code></pre>\n",
     "example": 3,
     "start_line": 369,
     "end_line": 376,

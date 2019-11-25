@@ -9,6 +9,8 @@ import Test.HUnit (Test(..), (~?=), (~:), runTestTT)
 import Data.Either (isLeft)
 import Lucid (renderText, renderToFile)
 import Data.Text.Lazy (unpack)
+import Data.Set (Set)
+import qualified Data.Set as Set
 -- import Test.QuickCheck (Arbitrary(..), Testable(..), Gen, elements,
 --     oneof, frequency, sized, quickCheckWith, stdArgs, maxSize,
 --     classify,  maxSuccess, listOf, resize, scale, (==>))
@@ -42,12 +44,16 @@ main = do
     -- case d of
     --     Left err -> putStrLn err
     --     Right ps -> print ps
-    let (Right ps) = d 
-    _ <- runTestTT (TestList (testList ps))
+    let (Right ps) = d
+    let ps' = filter (\p -> Set.member (section p) includedSections) ps 
+    _ <- runTestTT (TestList (testList ps'))
     return ()
+
+includedSections :: Set String
+includedSections = Set.fromList ["Lists"]
     
 testList :: [CMarkTest] -> [Test]
-testList (x:xs) = (render (markdown x) ~?= (html x)):(testList xs)
+testList (x:xs) = ("Example No:" ++ show (example x) ~: render (markdown x) ~?= (html x)):(testList xs)
 testList [] = []
 
 render :: String -> String

@@ -11,10 +11,13 @@ import Data.Text as Text (pack)
 
 ------------------ CUSTOM ELEMENTS
 br_ :: Html ()
-br_ = makeXmlElementNoEnd "br"
+br_ = makeXmlElementNoEnd "br "
 
 hr_ :: Html ()
-hr_ = makeXmlElementNoEnd "hr"
+hr_ = makeXmlElementNoEnd "hr "
+
+breakLine :: Html ()
+breakLine = toHtml ("\n" :: String)
 
 noTitleLink_ :: Text -> String -> Html ()
 noTitleLink_ t h = a_ [href_ $ pack h] (convertText t)
@@ -28,10 +31,10 @@ groupElements :: [Html ()] -> Html ()
 groupElements = foldl (<>) mempty
 
 convertDocument :: Document -> Html ()
-convertDocument xs = H.doctypehtml_ $ groupElements $ map convertBlock xs
+convertDocument xs = (H.doctypehtml_ $ groupElements $ map convertBlock xs) <> breakLine
 
 convertDocumentNoDoctype :: Document -> Html ()
-convertDocumentNoDoctype xs = groupElements $ map convertBlock xs
+convertDocumentNoDoctype xs = groupElements $ map (\x -> convertBlock x <> breakLine)  xs
 
 convertBlock :: Block -> Html ()
 convertBlock (Heading n t) = h n (convertText t) where
@@ -41,9 +44,12 @@ convertBlock (Heading n t) = h n (convertText t) where
   h H4 = h4_
   h H5 = h5_
   h H6 = h6_
-convertBlock (Paragraph t) = p_ $ convertText t
+convertBlock (Paragraph t) = p_ $ convertText $ textFilter t
 convertBlock (BlockQuote bs) = blockquote_ $ groupElements $ map convertBlock bs
-convertBlock (CodeBlock info text) = pre_ $ code_ [class_ $ pack info] $ toHtml text
+convertBlock (CodeBlock info text) = pre_ $ if info /= "" 
+                                      then with cbHtml [class_ $ pack ("language-" ++ info)] 
+                                      else cbHtml 
+  where cbHtml = code_ $ toHtml text
 convertBlock ThematicBreak = hr_
 convertBlock (UnorderedList lis) = ul_ $ convertListItems lis
 convertBlock (OrderedList start lis) = ol_ [start_ $ pack $ show start] (convertListItems lis)
@@ -53,14 +59,27 @@ convertListItems ls = groupElements $ map (li_ . convertListItem) ls
 
 convertListItem :: ListItem -> Html ()
 convertListItem [] = return mempty
-convertListItem ((Paragraph text):xs) = (convertText text) <> convertListItem xs
-convertListItem (x:xs) = (convertBlock x) <> convertListItem xs
+convertListItem ((Paragraph text):xs) = (convertText $ textFilter text) <> breakLine <> convertListItem xs
+convertListItem (x:xs) = (convertBlock x) <> breakLine <> convertListItem xs
+
+textFilter :: Text -> Text
+textFilter [] = []
+textFilter [Literal s] = [Literal $ foldr (\x ys -> if null ys && (x == ' ' || x == '\n') then ys else x:ys) [] s]
+textFilter (x:xs) = let ys = textFilter xs in if f x ys then x:ys else ys
+  where
+    f x xs = case (x, xs) of
+      (Literal "\n", []) -> False
+      _ -> True
 
 convertText :: Text -> Html ()
 convertText xs = groupElements $ map convertInline xs
 
 convertInline :: Inline -> Html ()
-convertInline (Literal s) = toHtml s
+convertInline (Literal s) = toHtml $ f s
+  where
+    f :: String -> String
+    f "\n" = "\n"
+    f xs = foldr (\c acc -> if null acc && c == '\n' then acc else c:acc) [] xs
 convertInline (Bold t) = strong_ $ convertText t
 convertInline (Italics t) = em_ $ convertText t
 convertInline (Strong t) = strong_ $ convertText t
