@@ -28,6 +28,7 @@ data Block
   | ThematicBreak
   | UnorderedList [ListItem]
   | OrderedList Int [ListItem]
+  | LiteralBlock String
   deriving (Eq, Show)
 
 type ListItem = [Block]
@@ -375,10 +376,10 @@ listP = bulletListP <|> orderedListP
 
 blockP :: Parser Block
 blockP = ((try indentedCodeBlockP) <|> (try thematicBreakP) <|> (try listP) <|> (try headingP) 
-          <|> (try codeBlockP) <|> (try paragraphP)) <* optional endOfLine 
+          <|> (try codeBlockP) <|> (try paragraphP)) <* optional (many endOfLine)
 
 documentP :: Parser Document
-documentP = many blockP
+documentP = many blockP 
 
 
 

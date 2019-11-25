@@ -30,6 +30,8 @@ groupElements = foldl (<>) mempty
 convertDocument :: Document -> Html ()
 convertDocument xs = H.doctypehtml_ $ groupElements $ map convertBlock xs
 
+convertDocumentNoDoctype :: Document -> Html ()
+convertDocumentNoDoctype xs = groupElements $ map convertBlock xs
 
 convertBlock :: Block -> Html ()
 convertBlock (Heading n t) = h n (convertText t) where
@@ -43,7 +45,7 @@ convertBlock (Paragraph t) = p_ $ convertText t
 convertBlock (BlockQuote bs) = blockquote_ $ groupElements $ map convertBlock bs
 convertBlock (CodeBlock info text) = pre_ $ code_ [class_ $ pack info] $ toHtml text
 convertBlock ThematicBreak = hr_
-convertBlock (UnorderedList bs) = ul_ $ convertListItems bs
+-- convertBlock (UnorderedList bs) = ul_ $ convertListItems bs
 
 convertListItems :: [Block] -> Html ()
 convertListItems [] = return mempty
