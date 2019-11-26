@@ -45,8 +45,8 @@ main = do
     --     Left err -> putStrLn err
     --     Right ps -> print ps
     let (Right ps) = d
-    let ps' = filter (\p -> Set.member (section p) includedSections) ps 
-    _ <- runTestTT (TestList (testList ps'))
+    -- let ps' = filter (\p -> Set.member (section p) includedSections) ps 
+    _ <- runTestTT (TestList (testList ps))
     return ()
 
 includedSections :: Set String
