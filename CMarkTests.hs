@@ -6,7 +6,7 @@ import Data.Aeson
 import GHC.Generics
 import Control.Monad (mzero)
 import Test.HUnit (Test(..), (~?=), (~:), runTestTT)
-import Data.Either (isLeft)
+import Data.Either (isLeft, fromRight)
 import Lucid (renderText, renderToFile)
 import Data.Text.Lazy (unpack)
 import Text.StringLike
@@ -14,6 +14,9 @@ import Data.Set (Set)
 import HTMLEntities.Decoder
 import   qualified          Text.HTML.TagSoup as TS
 import qualified Data.Set as Set
+import Text.Parsec.Char
+import Text.ParserCombinators.Parsec hiding (runParser)
+
 -- import Test.QuickCheck (Arbitrary(..), Testable(..), Gen, elements,
 --     oneof, frequency, sized, quickCheckWith, stdArgs, maxSize,
 --     classify,  maxSuccess, listOf, resize, scale, (==>))
@@ -59,10 +62,21 @@ testList :: [CMarkTest] -> [Test]
 testList (x:xs) = ("Example No:" ++ show (example x) ~: render (markdown x) ~?= (html x)):[] --(testList xs)
 testList [] = []
 
+decoder :: Parser String
+decoder = many $ choice [
+    try $ const '&' <$> string "&amp;",
+    try $ const '<' <$> string "&lt;",
+    try $ const '>' <$> string "&gt;",
+    try $ const '"' <$> string "&quot;",
+    try $ const '\'' <$> string "&#39;",
+    try $ const '/' <$> string " &#47;",
+    anyChar
+    ]
+
 render :: String -> String
 render x = case (runParser documentP x) of
     Left err -> ""
-    Right doc -> (decodeHTMLentities . unpack . renderText . convertDocumentNoDoctype) doc
+    Right doc -> fromRight "" $ runParser decoder ((unpack . renderText . convertDocumentNoDoctype) doc)
 
 
 -- credit to: https://stackoverflow.com/a/28372448/3192218
