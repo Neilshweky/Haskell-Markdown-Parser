@@ -480,13 +480,17 @@ tParTrailingSpaces = "paragraph trailing spaces test" ~: TestList [
  
 -- LIST TESTS 
 tList :: Test
-tList = TestList [ tUL, tULHeading, tUL3Spaces, tULICB, tULICB2, tULItem2Blocks,
+tList = TestList [ tUL, tULSingle, tULHeading, tUL3Spaces, tULICB, tULICB2, tULItem2Blocks,
                             tULItem2BlocksNewline, tULItem2BlocksNewlineSpaces, tULFewSpaces,
                             tULStar, tULPlus, tOL, tOLBigStart, tOLTooBigStart, tOLItem2Blocks ]
     
 tUL :: Test 
 tUL = "UL test" ~: 
     runParser listP "- hello\n- world" ~?= Right (UnorderedList [[Paragraph [Literal "hello"]],[Paragraph [Literal "world"]]])
+
+tULSingle :: Test 
+tULSingle = "ULSingle test" ~: 
+    runParser listP "- hello" ~?= Right (UnorderedList [[Paragraph [Literal "hello"]]])
 
 tULHeading :: Test 
 tULHeading = "ULHeading test" ~: 

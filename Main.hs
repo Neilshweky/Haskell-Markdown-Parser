@@ -158,7 +158,7 @@ inlineP :: Bool -> Parser Inline
 inlineP isPar = notFollowedBy (endOfLine *> wsp *> endOfLine) *> choice [
   try codeP, try imageP, try autoLinkP, try $ linkP isPar,
   try $ boldP isPar, try $ italicsP isPar, try $ hardBreakP isPar, try literalP
-  <|> Literal . (:[]) <$> ((try (endOfLine <* wsp)) <|> (oneOf rsvdChars))
+  <|> Literal . (:[]) <$> ((try (endOfLine <* wsp)) <|> (oneOf rsvdChars)) 
   ]
 
 textPBase :: Bool -> Parser Text
@@ -282,7 +282,7 @@ lineP = do
 
 paragraphP :: Parser Block
 paragraphP = Paragraph . mergeInlines <$>
-  (try (someTill inlineP' (try (endOfLine *> endOfLine) <|> endOfLine <* wsp <* lookAhead interruptsP))
+  (try (someTill inlineP' (try (endOfLine *> endOfLine) <|> lookAhead (endOfLine <* wsp <* lookAhead interruptsP)))
   <|> some inlineP')
   where inlineP' = inlineP True
 
@@ -333,7 +333,7 @@ uListItemP = do
 
 indentedBlockP :: Int -> Parser Block
 indentedBlockP i = do
-  _ <- lookAhead (wsp *> noneOf "-*+")
+  -- _ <- lookAhead (wsp *> noneOf "-*+")
   sps <- try (count i (char ' '))
   block <- try blockP
   _ <- many (try (wsp *> endOfLine))
