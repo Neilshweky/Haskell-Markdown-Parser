@@ -92,7 +92,7 @@ reserved :: Char -> Bool
 reserved c = c `elem` rsvdChars
 
 literalP :: Parser Inline
-literalP = Literal <$> some (notFollowedBy (endOfLine *> wsp *> endOfLine) *> satisfy (not . reserved))
+literalP = Literal . dropJustWsp <$> some (notFollowedBy (endOfLine *> wsp *> endOfLine) *> satisfy (not . reserved))
 
 -- escapedP :: Parser Inline
 -- escapedP = char '\\' *> (Literal <$> ((:[]) <$> anyChar))
@@ -167,10 +167,16 @@ textPBase isPar = mergeInlines <$> some (inlineP isPar)
 textP :: Parser Text
 textP = textPBase False
 
+removeTrailingWsp :: String -> String
+removeTrailingWsp [] = []
+removeTrailingWsp [' '] = []
+removeTrailingWsp (x:xs) = x:(removeTrailingWsp xs)
+
 mergeInlines :: Text -> Text
 mergeInlines [] = []
 mergeInlines [x] = [x]
 mergeInlines (x1:x2:xs) = case (x1, x2) of
+  (Literal a, Literal b@"\n") -> mergeInlines $ (Literal ((removeTrailingWsp a) ++ b)):xs
   (Literal a, Literal b) -> mergeInlines $ (Literal (a ++ b)):xs
   (Bold a, Bold b) -> mergeInlines $ (Bold (mergeInlines $ a ++ b)):xs
   (Italics a, Italics b) -> mergeInlines $ (Italics (mergeInlines $ a ++ b)):xs

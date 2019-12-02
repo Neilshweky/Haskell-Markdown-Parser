@@ -448,7 +448,7 @@ tTBMixSyms = "thematic break MixSyms test" ~:
 
 -- Paragraph tests
 tParagraph :: Test
-tParagraph = TestList [ tPar, tParBadHeading, tParIntCodeBlock, tParHardBreak ]
+tParagraph = TestList [ tPar, tParBadHeading, tParIntCodeBlock, tParHardBreak, tParTrailingSpaces ]
 
 tPar :: Test 
 tPar = "paragraph test" ~: 
@@ -469,6 +469,11 @@ tParHardBreak = "paragraph hardbreak test" ~: TestList [
     ]
     where parse = runParser documentP
 
+tParTrailingSpaces :: Test
+tParTrailingSpaces = "paragraph trailing spaces test" ~: TestList [
+        parse "foo \n baz\n" ~?= Right [Paragraph [Literal "foo\nbaz\n"]]
+    ]
+    where parse = runParser documentP
 -- tDocLeadingWsp :: Test 
 -- tDocLeadingWsp = "indented code block test" ~: 
 --     runParser documentP "\n\n\n   \n       \n\n    \n    a simple\n      indented code block" ~?= Right [(CodeBlock "" "a simple\n  indented code block")]

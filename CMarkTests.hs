@@ -9,10 +9,7 @@ import Test.HUnit (Test(..), (~?=), (~:), runTestTT)
 import Data.Either (isLeft, fromRight)
 import Lucid (renderText, renderToFile)
 import Data.Text.Lazy (unpack)
-import Text.StringLike
 import Data.Set (Set)
-import HTMLEntities.Decoder
-import   qualified          Text.HTML.TagSoup as TS
 import qualified Data.Set as Set
 import Text.Parsec.Char
 import Text.ParserCombinators.Parsec hiding (runParser)
@@ -59,7 +56,7 @@ includedSections :: Set String
 includedSections = Set.fromList ["Lists"]
     
 testList :: [CMarkTest] -> [Test]
-testList (x:xs) = ("Example No:" ++ show (example x) ~: render (markdown x) ~?= (html x)):[] --(testList xs)
+testList (x:xs) = ("Example No:" ++ show (example x) ~: render (markdown x) ~?= (html x)):testList xs
 testList [] = []
 
 decoder :: Parser String
@@ -76,12 +73,10 @@ decoder = many $ choice [
 render :: String -> String
 render x = case (runParser documentP x) of
     Left err -> ""
-    Right doc -> fromRight "" $ runParser decoder ((unpack . renderText . convertDocumentNoDoctype) doc)
+    Right doc -> (unpack . renderText . convertDocumentNoDoctype) doc
+    --fromRight "" $ runParser decoder ((unpack . renderText . convertDocumentNoDoctype) doc)
 
 
--- credit to: https://stackoverflow.com/a/28372448/3192218
-decodeHTMLentities :: (StringLike str, Show str) => str -> str   
-decodeHTMLentities s = TS.fromTagText $ head $ TS.parseTags s
 
 -- tArrayTest :: Test
 -- tArrayTest = TestList (testArray 4)
