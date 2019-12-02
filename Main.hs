@@ -289,7 +289,7 @@ paragraphP = Paragraph . mergeInlines <$>
 tbP :: Char -> Parser Block 
 tbP c = do
   t <- count 3 (char c <* wsp)
-  i <- many (char (head t) <* wsp) *> optionMaybe endOfLine *> optionMaybe anyChar
+  i <- many (char (head t) <* wsp) *> optionMaybe (satisfy (/='\n'))
   case i of
     Just _ -> (do fail "no other chars in thematic breaks")
     Nothing -> (do return ())
