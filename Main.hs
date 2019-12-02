@@ -150,7 +150,7 @@ autoLinkP = (\s -> Link [Literal s] s Nothing) <$> p
 hardBreakP :: Bool -> Parser Inline
 hardBreakP isPar = do
   guard isPar
-  try $ string "\\" <|> count 2 (char ' ') <* many (char ' ')
+  try $ string "\\" <|> (count 2 (char ' ') <* many (char ' '))
   try $ lookAhead $ char '\n' <* many (char ' ') <* satisfy (/= '\n')
   return HardBreak
 
