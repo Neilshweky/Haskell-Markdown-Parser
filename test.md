@@ -13,9 +13,6 @@ code block
 
 + list item 1
 + list item 2
-  + indented list item 1
-  + indented list item 2
-
 
 
 2. ordered list item 2

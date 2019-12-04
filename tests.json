@@ -4601,7 +4601,7 @@
   },
   {
     "markdown": "My ![foo bar](/path/to/train.jpg  \"title\"   )\n",
-    "html": "<p>My <img src=\"/path/to/train.jpg\" alt=\"foo bar\" title=\"title\" /></p>\n",
+    "html": "<p>My <img src=\"/path/to/train.jpg\" title=\"title\" alt=\"foo bar\"/></p>\n",
     "example": 576,
     "start_line": 8557,
     "end_line": 8561,
@@ -4609,7 +4609,7 @@
   },
   {
     "markdown": "![foo](<url>)\n",
-    "html": "<p><img src=\"url\" alt=\"foo\" /></p>\n",
+    "html": "<p><img src=\"url\" alt=\"foo\"/></p>\n",
     "example": 577,
     "start_line": 8564,
     "end_line": 8568,
@@ -4617,7 +4617,7 @@
   },
   {
     "markdown": "![](/url)\n",
-    "html": "<p><img src=\"/url\" alt=\"\" /></p>\n",
+    "html": "<p><img src=\"/url\" alt/></p>\n",
     "example": 578,
     "start_line": 8571,
     "end_line": 8575,
@@ -4625,7 +4625,7 @@
   },
   {
     "markdown": "![foo][bar]\n\n[bar]: /url\n",
-    "html": "<p><img src=\"/url\" alt=\"foo\" /></p>\n",
+    "html": "<p><img src=\"/url\" alt=\"foo\"/></p>\n",
     "example": 579,
     "start_line": 8580,
     "end_line": 8586,

@@ -492,6 +492,11 @@ tULSingle :: Test
 tULSingle = "ULSingle test" ~: 
     runParser listP "- hello" ~?= Right (UnorderedList [[Paragraph [Literal "hello"]]])
 
+tULEmbedded :: Test 
+tULEmbedded = "ULEmbedded test" ~: 
+    runParser listP "- two\n  - he" ~?= Right (UnorderedList [[Paragraph [Literal "two"],UnorderedList [[Paragraph [Literal "he"]]]]])
+    
+
 tULHeading :: Test 
 tULHeading = "ULHeading test" ~: 
     runParser listP "- ## hello \n- world" ~?= Right (UnorderedList [[Heading H2 [Literal "hello"]],[Paragraph [Literal "world"]]])
