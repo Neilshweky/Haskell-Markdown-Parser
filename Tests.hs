@@ -7,7 +7,7 @@ import Data.Either (isLeft)
 --     classify,  maxSuccess, listOf, resize, scale, (==>))
 
 
-import Main
+import Main hiding (main)
 
 
 tInlines :: Test
