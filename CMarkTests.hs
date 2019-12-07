@@ -51,13 +51,15 @@ main = do
     -- let ps' = filter (\p -> Set.member (section p) includedSections) ps 
     _ <- runTestTT (TestList (testList ps))
     return ()
+-- Features not supporting: 
+-- tabs, escapings, link reference, 1) lists, block quotes, 
+-- Setext headings, HTML blocks, autolinks for images
 
 includedSections :: Set String
-includedSections = Set.fromList ["Lists"]
+includedSections = Set.fromList ["Tabs"]
     
 testList :: [CMarkTest] -> [Test]
-testList (x:xs) = ("Example No:" ++ show (example x) ~: render (markdown x) ~?= (html x)):testList xs
-testList [] = []
+testList = map (\x -> "Example No:" ++ show (example x) ~: render (markdown x) ~?= (html x))
 
 decoder :: Parser String
 decoder = many $ choice [

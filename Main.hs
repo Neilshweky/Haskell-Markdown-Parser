@@ -63,17 +63,22 @@ someTillNonCommittal p end = scan
 runParser :: Parser a -> String -> Either ParseError a
 runParser p s = parse p "" s
 
-sorroundP :: Bool -> Parser start -> Parser end -> Parser Text
-sorroundP isPar start end = start *> (mergeInlines <$> someTill (inlineP isPar) (try end))
+surroundP :: Bool -> Parser start -> Parser end -> Parser Text
+surroundP isPar start end = start *> (mergeInlines <$> someTill (inlineP isPar) (try end))
 
 parseSurrounded :: Bool -> String -> String -> Parser Text
-parseSurrounded isPar start end = sorroundP isPar (string start) (string end)
+parseSurrounded isPar start end = surroundP isPar (string start) (string end)
 
 boldP :: Bool -> Parser Inline
 boldP isPar = Bold <$> ((parseSurrounded isPar "**" "**") <|> try (parseSurrounded isPar "__" "__"))
 
+italicsPCon :: Bool -> Char -> Parser Text
+italicsPCon isPar ch = surroundP isPar (satisfy (==ch)) 
+  (try (lookAhead (notFollowedBy $ parseSurrounded isPar [ch, ch] [ch, ch]) *> satisfy(==ch)))
+
 italicsP :: Bool -> Parser Inline
-italicsP isPar = Italics <$> ((parseSurrounded isPar "*" "*") <|> (parseSurrounded isPar "_" "_"))
+-- italicsP isPar = Italics <$> ((parseSurrounded isPar "*" "*") <|> (parseSurrounded isPar "_" "_"))
+italicsP isPar = Italics <$> (italicsPCon isPar '*' <|> italicsPCon isPar '_')
 
 -- strip whitespace?
 codeP :: Parser Inline
@@ -267,7 +272,7 @@ indentedCodeBlockP :: Parser Block
 indentedCodeBlockP = (CodeBlock "") <$> join <$> some indentedLineP
 
 reservedBlock :: Char -> Bool
-reservedBlock c = c `elem` ['#', '>', '-', '~', '*']
+reservedBlock c = c `elem` ['#', '<', '>', '-', '~', '*']
 
 interruptsP :: Parser Block
 interruptsP = (try thematicBreakP) <|> (try headingP) <|> (try codeBlockP) <|> (try listP)
@@ -296,7 +301,7 @@ tbP c = do
   return ThematicBreak
 
 thematicBreakP :: Parser Block
-thematicBreakP = wsp *> (tbP '*' <|> tbP '~' <|> tbP '-')
+thematicBreakP = wsp *> (tbP '*' <|> tbP '~' <|> tbP '-' <|> tbP '_')
 
 -- blockQuoteP start here tomorrow!
 
