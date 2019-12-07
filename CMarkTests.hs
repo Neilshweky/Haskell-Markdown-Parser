@@ -59,21 +59,21 @@ includedSections :: Set String
 includedSections = Set.fromList ["Tabs"]
     
 testList :: [CMarkTest] -> [Test]
-testList = map (\x -> "Example No:" ++ show (example x) ~: render (markdown x) ~?= (html x))
+testList = map (\x -> "Example No:" ++ show (example x) ~: render (markdown x) ~?= html x)
 
 decoder :: Parser String
 decoder = many $ choice [
-    try $ const '&' <$> string "&amp;",
-    try $ const '<' <$> string "&lt;",
-    try $ const '>' <$> string "&gt;",
-    try $ const '"' <$> string "&quot;",
-    try $ const '\'' <$> string "&#39;",
-    try $ const '/' <$> string " &#47;",
+    try $ '&' <$ string "&amp;",
+    try $ '<' <$ string "&lt;",
+    try $ '>' <$ string "&gt;",
+    try $ '"' <$ string "&quot;",
+    try $ '\'' <$ string "&#39;",
+    try $ '/' <$ string " &#47;",
     anyChar
     ]
 
 render :: String -> String
-render x = case (runParser documentP x) of
+render x = case runParser documentP x of
     Left err -> ""
     Right doc -> (unpack . renderText . convertDocumentNoDoctype) doc
     --fromRight "" $ runParser decoder ((unpack . renderText . convertDocumentNoDoctype) doc)

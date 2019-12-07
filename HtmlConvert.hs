@@ -31,7 +31,7 @@ groupElements :: [Html ()] -> Html ()
 groupElements = foldl (<>) mempty
 
 convertDocument :: Document -> Html ()
-convertDocument xs = (H.doctypehtml_ $ groupElements $ map convertBlock xs) <> breakLine
+convertDocument xs = H.doctypehtml_ (groupElements $ map convertBlock xs) <> breakLine
 
 convertDocumentNoDoctype :: Document -> Html ()
 convertDocumentNoDoctype xs = groupElements $ map (\x -> convertBlock x <> breakLine)  xs
@@ -59,7 +59,7 @@ convertListItems ls = groupElements $ map (li_ . convertListItem) ls
 
 convertListItem :: ListItem -> Html ()
 convertListItem [Paragraph text] = convertText $ textFilter text
-convertListItem xs = foldr (\x acc -> (convertBlock x) <> breakLine <> acc) mempty xs
+convertListItem xs = foldr (\x acc -> convertBlock x <> breakLine <> acc) mempty xs
 
 textFilter :: Text -> Text
 textFilter [] = []
