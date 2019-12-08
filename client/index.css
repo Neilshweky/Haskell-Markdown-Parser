@@ -1,0 +1,19 @@
+
+.block {
+    width: 50vw;
+    height: 400px;
+    color: gray;
+    margin: 10px;
+}
+
+#flex {
+    display: flex;
+    width: 100vw;
+    height: 400px;
+    align-content: center;
+    align-items: center;
+    justify-content: space-between;
+    flex-direction: row;
+    flex-wrap: nowrap;
+}
+
