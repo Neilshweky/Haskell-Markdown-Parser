@@ -52,28 +52,33 @@ data Inline
 --TODO fix code spans
 someTill :: Parser a -> Parser end -> Parser [a]
 someTill p end = scan
-                 where scan = (try ((:[]) <$> p <* end)) <|>
-                              (liftA2 (:) p scan) <|> empty
+                 where scan = try ((:[]) <$> p <* end) <|>
+                              liftA2 (:) p scan
 
 someTillNonCommittal :: Parser a -> Parser end -> Parser [a]
 someTillNonCommittal p end = scan
-                  where scan = (try ((:[]) <$> p <* (lookAhead $ end))) <|>
-                              (liftA2 (:) p scan) <|> empty
+                  where scan = try ((:[]) <$> p <* lookAhead end) <|>
+                              liftA2 (:) p scan
 
 runParser :: Parser a -> String -> Either ParseError a
-runParser p s = parse p "" s
+runParser p = parse p ""
 
-sorroundP :: Bool -> Parser start -> Parser end -> Parser Text
-sorroundP isPar start end = start *> (mergeInlines <$> someTill (inlineP isPar) (try end))
+surroundP :: Bool -> Parser start -> Parser end -> Parser Text
+surroundP isPar start end = start *> (mergeInlines <$> someTill (inlineP isPar) (try end))
 
 parseSurrounded :: Bool -> String -> String -> Parser Text
-parseSurrounded isPar start end = sorroundP isPar (string start) (string end)
+parseSurrounded isPar start end = surroundP isPar (string start) (string end)
 
 boldP :: Bool -> Parser Inline
-boldP isPar = Bold <$> ((parseSurrounded isPar "**" "**") <|> try (parseSurrounded isPar "__" "__"))
+boldP isPar = Bold <$> (parseSurrounded isPar "**" "**" <|> try (parseSurrounded isPar "__" "__"))
+
+italicsPCon :: Bool -> Char -> Parser Text
+italicsPCon isPar ch = surroundP isPar (satisfy (==ch)) 
+  (try (lookAhead (notFollowedBy $ parseSurrounded isPar [ch, ch] [ch, ch]) *> satisfy(==ch)))
 
 italicsP :: Bool -> Parser Inline
-italicsP isPar = Italics <$> ((parseSurrounded isPar "*" "*") <|> (parseSurrounded isPar "_" "_"))
+-- italicsP isPar = Italics <$> ((parseSurrounded isPar "*" "*") <|> (parseSurrounded isPar "_" "_"))
+italicsP isPar = Italics <$> (italicsPCon isPar '*' <|> italicsPCon isPar '_')
 
 -- strip whitespace?
 codeP :: Parser Inline
@@ -99,14 +104,14 @@ literalP = Literal . dropJustWsp <$> some (notFollowedBy (endOfLine *> wsp *> en
 
 
 linkDestTitleP :: Parser (String, Maybe String)
-linkDestTitleP = (char '(' *> many (char ' ') *> p <* many (char ' ') <* (char ')'))
+linkDestTitleP = char '(' *> many (char ' ') *> p <* many (char ' ') <* char ')'
   where              
     p = (,) <$> destLinkP <*> titleP
     destLinkP :: Parser String
     destLinkP = try (char '<' *> manyTill (satisfy (/= '\n')) (char '>')) 
                 <|> many (satisfy (\c -> c /= ' ' && c /= ')' && c /= '\n'))
     titleP :: Parser (Maybe String)
-    titleP = try (Just <$> (some (char ' ') *> try wrappedTitleP)) <|> const Nothing <$> (many (char ' ') *> string "")
+    titleP = try (Just <$> (some (char ' ') *> try wrappedTitleP)) <|> Nothing <$ (many (char ' ') *> string "")
     wrappedTitleP :: Parser String
     wrappedTitleP = choice [
       char '"' *> manyTill anyChar  (char '"'),
@@ -134,14 +139,14 @@ autoLinkP :: Parser Inline
 autoLinkP = (\s -> Link [Literal s] s Nothing) <$> p
   where
     p :: Parser String
-    p = char '<' *> ((++) <$> prefixP <*> (notFollowedBy codeP >> many urlChar <* (char '>')))
+    p = char '<' *> ((++) <$> prefixP <*> (notFollowedBy codeP >> many urlChar <* char '>'))
     prefixP :: Parser String
     prefixP = (\a b c -> a:b++[c])
                 <$> satisfy isAlpha
                 <*> some (satisfy (\c -> isAlphaNum c || c == '.' || c == '+' || c == '-'))
                 <*> char ':'
     urlChar :: Parser Char
-    urlChar = satisfy (flip Set.member whiteList)
+    urlChar = satisfy (`Set.member` whiteList)
     whiteList :: Set Char
     whiteList =  Set.fromList ("ABCDEFGHIJKLMNOPQRSTUVWXYZ" 
                             ++ "abcdefghijklmnopqrstuvwxyz"
@@ -158,7 +163,7 @@ inlineP :: Bool -> Parser Inline
 inlineP isPar = notFollowedBy (endOfLine *> wsp *> endOfLine) *> choice [
   try codeP, try imageP, try autoLinkP, try $ linkP isPar,
   try $ boldP isPar, try $ italicsP isPar, try $ hardBreakP isPar, try literalP
-  <|> Literal . (:[]) <$> ((try (endOfLine <* wsp)) <|> (oneOf rsvdChars)) 
+  <|> Literal . (:[]) <$> (try (endOfLine <* wsp) <|> oneOf rsvdChars) 
   ]
 
 textPBase :: Bool -> Parser Text
@@ -170,19 +175,19 @@ textP = textPBase False
 removeTrailingWsp :: String -> String
 removeTrailingWsp [] = []
 removeTrailingWsp [' '] = []
-removeTrailingWsp (x:xs) = x:(removeTrailingWsp xs)
+removeTrailingWsp (x:xs) = x:removeTrailingWsp xs
 
 mergeInlines :: Text -> Text
 mergeInlines [] = []
 mergeInlines [x] = [x]
 mergeInlines (x1:x2:xs) = case (x1, x2) of
-  (Literal a, Literal b@"\n") -> mergeInlines $ (Literal ((removeTrailingWsp a) ++ b)):xs
-  (Literal a, Literal b) -> mergeInlines $ (Literal (a ++ b)):xs
-  (Bold a, Bold b) -> mergeInlines $ (Bold (mergeInlines $ a ++ b)):xs
-  (Italics a, Italics b) -> mergeInlines $ (Italics (mergeInlines $ a ++ b)):xs
-  (Strong a, Strong b) -> mergeInlines $ (Strong (mergeInlines $ a ++ b)):xs
-  (Code a, Code b) -> mergeInlines $ (Code (a++b)):xs
-  _ -> x1:(mergeInlines (x2:xs))
+  (Literal a, Literal b@"\n") -> mergeInlines $ Literal (removeTrailingWsp a ++ b):xs
+  (Literal a, Literal b) -> mergeInlines $ Literal (a ++ b):xs
+  (Bold a, Bold b) -> mergeInlines $ Bold (mergeInlines $ a ++ b):xs
+  (Italics a, Italics b) -> mergeInlines $ Italics (mergeInlines $ a ++ b):xs
+  (Strong a, Strong b) -> mergeInlines $ Strong (mergeInlines $ a ++ b):xs
+  (Code a, Code b) -> mergeInlines $ Code (a++b):xs
+  _ -> x1:mergeInlines (x2:xs)
 
 
 --Done inline parsers
@@ -197,19 +202,19 @@ headingLevel 6 = H6
 headingLevel _ = H1
 
 dropSpaces :: [Inline] -> [Inline]
-dropSpaces ((Literal l):[]) = if length list == 0 then [] else [Literal list] where
-      dropS ls@(x:xs) = if (x == ' ' || x == '#') then dropS xs else ls
+dropSpaces [Literal l] = [Literal list | not (null list)] where
+      dropS ls@(x:xs) = if x == ' ' || x == '#' then dropS xs else ls
       dropS [] = []
 
-      list = (reverse (dropS (reverse l)))
-dropSpaces (x:[]) = [x]
+      list = reverse (dropS (reverse l))
+dropSpaces [x] = [x]
 dropSpaces [] = []
-dropSpaces (x:xs) = x:(dropSpaces xs)
+dropSpaces (x:xs) = x:dropSpaces xs
 
  
 
 wsp :: Parser String
-wsp = (many (char ' ')) 
+wsp = many (char ' ')
 
 headingP :: Parser Block
 headingP = 
@@ -217,10 +222,10 @@ headingP =
     sps <- wsp
     guard (length sps < 4)
     l <- some (char '#') 
-    guard ((length l) < 7 && (length l) > 0)
+    guard (length l < 7 && not (null l))
     tRaw <- some (char ' ') *> (try (someTill (inlineP False)  endOfLine) <|> textP)
     let t = mergeInlines tRaw
-    return (Heading (headingLevel (length l)) (if length t == 0 then t else (dropSpaces t)))
+    return (Heading (headingLevel (length l)) (if null t then t else dropSpaces t))
 
 
 plainTextP :: Char -> Parser PlainText
@@ -230,12 +235,14 @@ codeBlockP :: Parser Block
 codeBlockP = codeBlockSurround '`' <|> codeBlockSurround '~'
 
 dropWsp s = reverse (dropS (reverse s)) where
-  dropS ls@(x:xs) = if (x == '\n') then xs else 
-                    if (x == ' ') then dropS xs else ls
+  dropS ls@(x:xs)
+    | x == '\n' = xs
+    | x == ' ' = dropS xs
+    | otherwise = ls
   dropS [] = []
 
 dropJustWsp s = reverse (dropS (reverse s)) where
-  dropS ls@(x:xs) = if (x == ' ') then dropS xs else ls
+  dropS ls@(x:xs) = if x == ' ' then dropS xs else ls
   dropS [] = []
 
 -- only backticks
@@ -252,33 +259,34 @@ eolWspP :: Parser Char
 eolWspP = do
   i <- endOfLine
   l <- lookAhead wsp
-  when ((length l) < 4) (do { _ <- wsp; return () })
+  when (length l < 4) (do { _ <- wsp; return () })
   return i
 
 indentedLineP :: Parser PlainText
 indentedLineP = do
   _ <- count 4 (char ' ') 
-  t <- many (satisfy (not . (=='\n')))
-  t' <- many (eolWspP)
+  t <- many (satisfy (/='\n'))
+  t' <- many eolWspP
   return (t <> t')
 
 
 indentedCodeBlockP :: Parser Block
-indentedCodeBlockP = (CodeBlock "") <$> join <$> some indentedLineP
+indentedCodeBlockP = CodeBlock "" . join <$> some indentedLineP
 
 reservedBlock :: Char -> Bool
-reservedBlock c = c `elem` ['#', '>', '-', '~', '*']
+reservedBlock c = c `elem` ['#', '<', '>', '-', '~', '*']
 
 interruptsP :: Parser Block
-interruptsP = (try thematicBreakP) <|> (try headingP) <|> (try codeBlockP) <|> (try listP)
+interruptsP = try thematicBreakP <|> try headingP <|> try codeBlockP <|> try listP
 
 lineP :: Parser Text
-lineP = do 
-  -- _ <- notFollowedBy endOfLine
-  -- _ <- notFollowedBy interruptsP
-  -- _ <- wsp
-  text <- textP 
-  return text
+lineP = textP
+-- lineP = do 
+--   -- _ <- notFollowedBy endOfLine
+--   -- _ <- notFollowedBy interruptsP
+--   -- _ <- wsp
+--   text <- textP 
+--   return
 
 paragraphP :: Parser Block
 paragraphP = Paragraph . mergeInlines <$>
@@ -291,12 +299,12 @@ tbP c = do
   t <- count 3 (char c <* wsp)
   i <- many (char (head t) <* wsp) *> optionMaybe (satisfy (/='\n'))
   case i of
-    Just _ -> (do fail "no other chars in thematic breaks")
-    Nothing -> (do return ())
+    Just _ -> fail "no other chars in thematic breaks"
+    Nothing -> return ()
   return ThematicBreak
 
 thematicBreakP :: Parser Block
-thematicBreakP = wsp *> (tbP '*' <|> tbP '~' <|> tbP '-')
+thematicBreakP = wsp *> (tbP '*' <|> tbP '~' <|> tbP '-' <|> tbP '_')
 
 -- blockQuoteP start here tomorrow!
 
@@ -323,8 +331,8 @@ thematicBreakP = wsp *> (tbP '*' <|> tbP '~' <|> tbP '-')
 -- -- no p in list item if no \n
 uListItemP :: Parser [Block]
 uListItemP = do
-  sps <- lookAhead (wsp <* (oneOf "-*+"))
-  sps2 <- try (wsp *> (oneOf "-*+") *> some (char ' '))
+  sps <- lookAhead (wsp <* oneOf "-*+")
+  sps2 <- try (wsp *> oneOf "-*+" *> some (char ' '))
   block <- blockP
   _ <- many (try (wsp *> endOfLine))
   blocks <- many (indentedBlockP (length sps + length sps2 + 1)) 
@@ -355,10 +363,11 @@ oListItemP = do
 orderedIndentedBlockP :: Int -> Parser Block
 orderedIndentedBlockP i = do
   _ <- lookAhead (wsp *> notFollowedBy beginningIntP)
-  sps <- try (count i (char ' '))
-  block <- try blockP
-  _ <- many (try (wsp *> endOfLine))
-  return block
+  indentedBlockP i
+  -- sps <- try (count i (char ' '))
+  -- block <- try blockP
+  -- _ <- many (try (wsp *> endOfLine))
+  -- return block
 --
 
 bulletListP :: Parser Block
@@ -368,7 +377,7 @@ bulletListP = do
 
 beginningIntP :: Parser String
 beginningIntP = do
-  start <- ((many digit) <* char '.')
+  start <- many digit <* char '.'
   guard (length start < 10)
   return start
 
@@ -382,8 +391,8 @@ listP :: Parser Block
 listP = bulletListP <|> orderedListP
 
 blockP :: Parser Block
-blockP = ((try indentedCodeBlockP) <|> (try thematicBreakP) <|> (try listP) <|> (try headingP) 
-          <|> (try codeBlockP) <|> (try paragraphP)) <* optional (many endOfLine)
+blockP = (try indentedCodeBlockP <|> try thematicBreakP <|> try listP <|> try headingP 
+          <|> try codeBlockP <|> try paragraphP) <* optional (many endOfLine)
 
 documentP :: Parser Document
 documentP = many blockP 

@@ -7,7 +7,7 @@ import Data.Either (isLeft)
 --     classify,  maxSuccess, listOf, resize, scale, (==>))
 
 
-import Main
+import Main hiding (main)
 
 
 tInlines :: Test
@@ -384,11 +384,11 @@ tPagraphBeforeICB2 = "paragraph before icb 2 lb test" ~:
 
 tICBTrailingLB :: Test 
 tICBTrailingLB = "indented code block trailing lb test" ~: 
-    runParser documentP "    a simple\n    " ~?= Right [(CodeBlock "" "a simple\n")]
+    runParser documentP "    a simple\n    " ~?= Right [CodeBlock "" "a simple\n"]
 
 tICBTrailingWsp :: Test 
 tICBTrailingWsp = "indented code block trailing wsp test" ~: 
-    runParser documentP "    a simple  \n    " ~?= Right [(CodeBlock "" "a simple  \n")]
+    runParser documentP "    a simple  \n    " ~?= Right [CodeBlock "" "a simple  \n"]
 
 -- Thematic Break tests
 
@@ -452,15 +452,15 @@ tParagraph = TestList [ tPar, tParBadHeading, tParIntCodeBlock, tParHardBreak, t
 
 tPar :: Test 
 tPar = "paragraph test" ~: 
-    runParser documentP "hello, world\n # hello" ~?= Right ([Paragraph [Literal "hello, world"], Heading H1 [Literal "hello"]])
+    runParser documentP "hello, world\n # hello" ~?= Right [Paragraph [Literal "hello, world"], Heading H1 [Literal "hello"]]
 
 tParBadHeading :: Test 
 tParBadHeading = "paragraph bad heading test" ~: 
-    runParser documentP "hello, world\n ######## hello" ~?= Right ([Paragraph [Literal "hello, world\n######## hello"]])
+    runParser documentP "hello, world\n ######## hello" ~?= Right [Paragraph [Literal "hello, world\n######## hello"]]
 
 tParIntCodeBlock :: Test 
 tParIntCodeBlock = "paragraph bad heading test" ~: 
-    runParser documentP "hello, world\n ```\n```" ~?= Right ([Paragraph [Literal "hello, world"], CodeBlock "" ""])
+    runParser documentP "hello, world\n ```\n```" ~?= Right [Paragraph [Literal "hello, world"], CodeBlock "" ""]
 
 tParHardBreak :: Test
 tParHardBreak = "paragraph hardbreak test" ~: TestList [
@@ -558,7 +558,7 @@ tOLBigStart = "OLBigStart test" ~:
 
 tOLTooBigStart :: Test 
 tOLTooBigStart = "OLTooBigStart test" ~: 
-    runParser documentP "1234567890. hello" ~?= Right ([Paragraph [Literal "1234567890. hello"]])
+    runParser documentP "1234567890. hello" ~?= Right [Paragraph [Literal "1234567890. hello"]]
 
 --
 tOLItem2Blocks :: Test 

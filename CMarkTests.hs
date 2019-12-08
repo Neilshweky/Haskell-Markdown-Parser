@@ -19,7 +19,7 @@ import Text.ParserCombinators.Parsec hiding (runParser)
 --     classify,  maxSuccess, listOf, resize, scale, (==>))
 
 
-import Main
+import Main hiding (main)
 import HtmlConvert
 
 data CMarkTest = CMarkTest {
@@ -51,27 +51,29 @@ main = do
     -- let ps' = filter (\p -> Set.member (section p) includedSections) ps 
     _ <- runTestTT (TestList (testList ps))
     return ()
+-- Features not supporting: 
+-- tabs, escapings, link reference, 1) lists, block quotes, 
+-- Setext headings, HTML blocks, autolinks for images
 
 includedSections :: Set String
-includedSections = Set.fromList ["Lists"]
+includedSections = Set.fromList ["Tabs"]
     
 testList :: [CMarkTest] -> [Test]
-testList (x:xs) = ("Example No:" ++ show (example x) ~: render (markdown x) ~?= (html x)):testList xs
-testList [] = []
+testList = map (\x -> "Example No:" ++ show (example x) ~: render (markdown x) ~?= html x)
 
 decoder :: Parser String
 decoder = many $ choice [
-    try $ const '&' <$> string "&amp;",
-    try $ const '<' <$> string "&lt;",
-    try $ const '>' <$> string "&gt;",
-    try $ const '"' <$> string "&quot;",
-    try $ const '\'' <$> string "&#39;",
-    try $ const '/' <$> string " &#47;",
+    try $ '&' <$ string "&amp;",
+    try $ '<' <$ string "&lt;",
+    try $ '>' <$ string "&gt;",
+    try $ '"' <$ string "&quot;",
+    try $ '\'' <$ string "&#39;",
+    try $ '/' <$ string " &#47;",
     anyChar
     ]
 
 render :: String -> String
-render x = case (runParser documentP x) of
+render x = case runParser documentP x of
     Left err -> ""
     Right doc -> (unpack . renderText . convertDocumentNoDoctype) doc
     --fromRight "" $ runParser decoder ((unpack . renderText . convertDocumentNoDoctype) doc)
