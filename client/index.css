@@ -2,8 +2,12 @@
 .block {
     width: 50vw;
     height: 400px;
-    color: gray;
+    color: green;
     margin: 10px;
+}
+
+.html {
+    vertical-align: top;
 }
 
 #flex {
