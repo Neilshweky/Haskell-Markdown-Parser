@@ -92,7 +92,7 @@ reserved :: Char -> Bool
 reserved c = c `elem` rsvdChars
 
 literalP :: Parser Inline
-literalP = Literal . dropJustWsp <$> some (notFollowedBy (endOfLine *> wsp *> endOfLine) *> (try (char '\\') *> (satisfy (/='\n')) <|> satisfy (not . reserved)))
+literalP = Literal . dropJustWsp <$> some (notFollowedBy (endOfLine *> wsp *> endOfLine) *> (satisfy (not . reserved))) -- try (char '\\') *> (satisfy (/='\n')) <|> 
 
 -- escapedP :: Parser Inline
 -- escapedP = char '\\' *> (Literal <$> ((:[]) <$> anyChar))
@@ -333,10 +333,10 @@ uListItemP = do
 
 indentedBlockP :: Int -> Parser Block
 indentedBlockP i = do
-  _ <- lookAhead (wsp *> noneOf "-*+")
+  -- _ <- lookAhead (wsp *> noneOf "-*+")
   sps <- try (count i (char ' '))
   --sps2 <- lookAhead wsp
-  block <- blockP--try indentedBlockP (i + ) <|>  try blockP
+  block <- try blockP--try indentedBlockP (i + ) <|>  try blockP
   _ <- many (try (wsp *> endOfLine))
   return block
 
