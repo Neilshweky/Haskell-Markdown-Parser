@@ -2,7 +2,7 @@
 
 module HtmlConvertTest where
 
-import Main hiding (main)
+import MarkDownParse hiding (main)
 import HtmlConvert
 import Lucid (renderText, renderToFile)
 import Data.Text.Lazy (unpack)

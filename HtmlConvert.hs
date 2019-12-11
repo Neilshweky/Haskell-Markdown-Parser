@@ -2,8 +2,8 @@
 
 module HtmlConvert where
 
-import Main
-import qualified Main as M
+import MarkDownParse
+import qualified MarkDownParse as M
 import Lucid hiding (br_, hr_)
 import qualified  Lucid as H
 import Lucid.Base (makeXmlElementNoEnd)

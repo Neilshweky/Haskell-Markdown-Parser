@@ -9,7 +9,7 @@ import HtmlConvert (convertDocumentNoDoctype)
 import Lucid (renderText, renderToFile)
 import Data.Text.Lazy (unpack, pack)
 import Network.Wai.Middleware.Cors
-import Main (documentP, runParser)
+import MarkDownParse (documentP, runParser)
 
 main = scotty 3000 $ do
   middleware simpleCors
