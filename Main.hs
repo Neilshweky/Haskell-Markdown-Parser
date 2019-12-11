@@ -49,7 +49,6 @@ data Inline
   | HardBreak
   deriving (Eq, Show)
 
---TODO fix code spans
 someTill :: Parser a -> Parser end -> Parser [a]
 someTill p end = scan
                  where scan = try ((:[]) <$> p <* end) <|>
