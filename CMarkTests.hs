@@ -19,7 +19,7 @@ import Text.ParserCombinators.Parsec hiding (runParser)
 --     classify,  maxSuccess, listOf, resize, scale, (==>))
 
 
-import Main hiding (main)
+import MarkDownParse hiding (main)
 import HtmlConvert
 
 data CMarkTest = CMarkTest {
