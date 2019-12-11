@@ -96,7 +96,7 @@ reserved :: Char -> Bool
 reserved c = c `elem` rsvdChars
 
 literalP :: Parser Inline
-literalP = Literal . dropJustWsp <$> some (notFollowedBy (endOfLine *> wsp *> endOfLine) *> (satisfy (not . reserved))) -- try (char '\\') *> (satisfy (/='\n')) <|> 
+literalP = Literal . dropJustWsp <$> some (notFollowedBy (endOfLine *> wsp *> endOfLine) *> satisfy (not . reserved)) -- try (char '\\') *> (satisfy (/='\n')) <|> 
 
 -- escapedP :: Parser Inline
 -- escapedP = char '\\' *> (Literal <$> ((:[]) <$> anyChar))
