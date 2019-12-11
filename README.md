@@ -1,5 +1,8 @@
 # Members
-Jing Wang jing17
+|     Name    | PennKey |
+| ----------- | ------- |
+| Neil Shweky | nshweky |
+|  Jing Wang  | jing17  |
 
 # Project Stucture
 ```
